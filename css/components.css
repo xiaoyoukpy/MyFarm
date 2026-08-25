@@ -556,6 +556,42 @@
   font-weight: 400;
 }
 
+/* 调试面板 */
+.debug-panel {
+  padding: 5px 0;
+}
+
+.debug-section {
+  margin-bottom: 22px;
+}
+
+.debug-section:last-child {
+  margin-bottom: 0;
+}
+
+.debug-title {
+  font-size: 1rem;
+  margin-bottom: 10px;
+  color: var(--ink-color);
+}
+
+.debug-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.debug-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.debug-tip {
+  font-size: 0.8rem;
+  color: var(--ink-lighter);
+  margin-top: 10px;
+}
+
 .inline-icon {
   display: inline-block;
   position: relative;
@@ -574,6 +610,26 @@
 .weather-name {
   font-size: 1.1rem;
   font-weight: 500;
+}
+
+/* 季节信息 */
+.season-info {
+  padding: 14px 18px;
+  background: var(--paper-dark);
+  border-radius: var(--border-radius);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.season-name {
+  font-weight: 600;
+  color: var(--ink-color);
+}
+
+.season-desc {
+  font-size: 0.85rem;
+  color: var(--ink-lighter);
 }
 
 /* 今日小结 */

@@ -19,7 +19,10 @@ const CONFIG = {
   },
   
   SPECIAL_EVENT_CHANCE: 0.1,
-  MAX_BUILDING_LEVEL: 3
+  MAX_BUILDING_LEVEL: 3,
+  SEASON_DAYS: 30,
+  
+  DEBUG_MODE: true
 };
 
 const WEATHER_TYPES = {
@@ -27,6 +30,35 @@ const WEATHER_TYPES = {
   rainy: { name: '雨', icon: 'rainy' },
   cloudy: { name: '阴', icon: 'cloudy' },
   snowy: { name: '雪', icon: 'snowy' }
+};
+
+const SEASON_ORDER = ['spring', 'summer', 'autumn', 'winter'];
+
+const SEASONS = {
+  spring: {
+    name: '春',
+    growthMultiplier: 0.8,
+    incomeMultiplier: 0.8,
+    description: '万物复苏，作物生长最快，但收购价较低。'
+  },
+  summer: {
+    name: '夏',
+    growthMultiplier: 1.0,
+    incomeMultiplier: 0.7,
+    description: '烈日炎炎，作物正常生长，收购价是一年中最低的。'
+  },
+  autumn: {
+    name: '秋',
+    growthMultiplier: 1.2,
+    incomeMultiplier: 1.2,
+    description: '秋高气爽，作物生长变慢，但收购价更高。'
+  },
+  winter: {
+    name: '冬',
+    growthMultiplier: 1.5,
+    incomeMultiplier: 1.5,
+    description: '严寒漫长，作物生长最慢，但收购价是一年中最高的。'
+  }
 };
 
 const CROP_TYPES = {

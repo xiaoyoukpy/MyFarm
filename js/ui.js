@@ -41,6 +41,7 @@ class UIManager {
       flipButton: document.getElementById('flip-button'),
       resetButton: document.getElementById('reset-button'),
       menuButton: document.getElementById('menu-button'),
+      debugButton: document.getElementById('debug-button'),
       modal: document.getElementById('modal'),
       modalTitle: document.getElementById('modal-title'),
       modalContent: document.getElementById('modal-content'),
@@ -73,6 +74,13 @@ class UIManager {
         if (this.onBackToMenu) this.onBackToMenu();
       });
     });
+
+    if (CONFIG.DEBUG_MODE) {
+      this.elements.debugButton?.classList.remove('hidden');
+      this.elements.debugButton?.addEventListener('click', () => {
+        this.showDebugModal();
+      });
+    }
   }
 
   showMenu() {
@@ -231,7 +239,8 @@ class UIManager {
 
   updateHeader() {
     if (this.elements.dayDisplay) {
-      this.elements.dayDisplay.textContent = `第 ${game.data.day} 天`;
+      const seasonName = game.getSeasonInfo ? game.getSeasonInfo().name : '';
+      this.elements.dayDisplay.textContent = `第 ${game.data.day} 天 · ${seasonName}季`;
     }
     if (this.elements.goldDisplay) {
       const gold = Number(game.data.gold);
@@ -377,6 +386,8 @@ class UIManager {
     if (!container) return;
     
     const weatherName = game.getWeatherName();
+    const seasonInfo = game.getSeasonInfo();
+    const seasonDay = game.getSeasonDay();
     
     container.innerHTML = `
       <div class="content-section">
@@ -387,6 +398,10 @@ class UIManager {
             <span class="weather-name">${weatherName}</span>
           </span>
         </h3>
+        <div class="season-info">
+          <span class="season-name">${seasonInfo.name}季 第${seasonDay}/${CONFIG.SEASON_DAYS}天</span>
+          <span class="season-desc">${seasonInfo.description}（生长时间×${seasonInfo.growthMultiplier}，收益×${seasonInfo.incomeMultiplier}）</span>
+        </div>
       </div>
       
       <div class="content-section">
@@ -497,9 +512,18 @@ class UIManager {
       `;
     }
     
+    const typeOrder = Object.keys(BUILDING_TYPES);
+    const sorted = buildings
+      .map((b, i) => ({ b, i }))
+      .sort((x, y) => {
+        const diff = typeOrder.indexOf(x.b.type) - typeOrder.indexOf(y.b.type);
+        return diff !== 0 ? diff : x.i - y.i;
+      })
+      .map(x => x.b);
+    
     return `
       <div class="card-grid">
-        ${buildings.map(building => this.renderBuildingCard(building)).join('')}
+        ${sorted.map(building => this.renderBuildingCard(building)).join('')}
       </div>
     `;
   }
@@ -690,8 +714,9 @@ class UIManager {
       let btnText = '建造';
       if (building.maxCount) {
         const owned = game.data.farm.buildings.filter(b => b.type === type).length;
-        countInfo = ` | ${owned}/${building.maxCount}`;
-        if (owned >= building.maxCount) {
+        const queued = game.data.plans.filter(p => p.isActive && p.type === 'build' && p.onComplete?.buildingData?.type === type).length;
+        countInfo = ` | ${owned + queued}/${building.maxCount}`;
+        if (owned + queued >= building.maxCount) {
           btnText = '已满';
         }
       }
@@ -711,28 +736,45 @@ class UIManager {
 
   renderUpgradeActions() {
     const maxLevel = CONFIG.MAX_BUILDING_LEVEL || 3;
-    const upgradeable = game.data.farm.buildings.filter(b => b.status === 'built' && b.level < maxLevel);
+    const built = game.data.farm.buildings.filter(b => b.status === 'built');
     
-    if (upgradeable.length === 0) {
+    if (built.length === 0) {
       return `
         <div class="empty-state small">
-          <div class="empty-state-text">暂无可升级的建筑（每种建筑最高${maxLevel}级）</div>
+          <div class="empty-state-text">暂无可升级的建筑（先建造一些建筑吧）</div>
         </div>
       `;
     }
     
-    return upgradeable.map(building => {
-      const upgradeCost = Math.floor(building.level * 50);
-      const upgradeDays = building.level + 2;
+    return built.map(building => {
+      const maxed = building.level >= maxLevel;
+      const upgrading = game.data.plans.some(p => p.isActive && p.type === 'upgrade' && p.onComplete?.buildingId === building.id);
+      
+      let btnHtml = '';
+      let detailText = '';
+      let nameText = building.name;
+      
+      if (maxed) {
+        nameText += ` Lv${building.level}（满级）`;
+        btnHtml = `<button class="btn btn-action" disabled>已满级</button>`;
+      } else if (upgrading) {
+        nameText += ` Lv${building.level}`;
+        btnHtml = `<button class="btn btn-action" disabled>升级中</button>`;
+      } else {
+        const upgradeCost = Math.floor(building.level * 50);
+        const upgradeDays = building.level + 2;
+        nameText += ` Lv${building.level} → Lv${building.level + 1}`;
+        detailText = `${upgradeDays}天 | ${upgradeCost}金币`;
+        btnHtml = `<button class="btn btn-action btn-upgrade" data-building-id="${building.id}" data-cost="${upgradeCost}">升级</button>`;
+      }
+      
       return `
         <div class="action-item">
           <div class="action-info">
-            <span class="action-name">${building.name} Lv${building.level} → Lv${building.level + 1}</span>
-            <span class="action-detail">${upgradeDays}天 | ${upgradeCost}金币</span>
+            <span class="action-name">${nameText}</span>
+            ${detailText ? `<span class="action-detail">${detailText}</span>` : ''}
           </div>
-          <button class="btn btn-action btn-upgrade" data-building-id="${building.id}" data-cost="${upgradeCost}">
-            升级
-          </button>
+          ${btnHtml}
         </div>
       `;
     }).join('');
@@ -782,41 +824,34 @@ class UIManager {
     const crop = CROP_TYPES[cropType];
     if (!crop) return;
     
-    const canPlant = game.canPlantCrop();
-    if (!canPlant) {
+    if (!game.canPlantCrop()) {
       this.showToast(game.getPlantingErrorMessage(), 'error');
       return;
     }
     
-    this.showConfirm(
-      '种植作物',
-      `确定要种植${crop.name}吗？\n消耗：${cost}金币\n将在明天开始生长`,
-      () => {
-        if (this.onAddPlan) {
-          const result = this.onAddPlan({
-            type: 'plant',
-            target: crop.name,
-            days: 0,
-            cost: cost,
-            onComplete: {
-              cropData: {
-                name: crop.name,
-                type: cropType,
-                daysToHarvest: crop.daysToHarvest,
-                seedCost: cost
-              }
-            }
-          });
-          
-          if (result.success) {
-            this.showToast(result.message);
-            this.render();
-          } else {
-            this.showToast(result.message, 'error');
+    if (this.onAddPlan) {
+      const result = this.onAddPlan({
+        type: 'plant',
+        target: crop.name,
+        days: 0,
+        cost: cost,
+        onComplete: {
+          cropData: {
+            name: crop.name,
+            type: cropType,
+            daysToHarvest: crop.daysToHarvest,
+            seedCost: cost
           }
         }
+      });
+      
+      if (result.success) {
+        this.showToast(result.message);
+        this.render();
+      } else {
+        this.showToast(result.message, 'error');
       }
-    );
+    }
   }
 
   handleBuild(buildingType, cost) {
@@ -825,7 +860,8 @@ class UIManager {
     
     if (building.maxCount) {
       const owned = game.data.farm.buildings.filter(b => b.type === buildingType).length;
-      if (owned >= building.maxCount) {
+      const queued = game.data.plans.filter(p => p.isActive && p.type === 'build' && p.onComplete?.buildingData?.type === buildingType).length;
+      if (owned + queued >= building.maxCount) {
         this.showToast(`${building.name}建造数量已达上限（${building.maxCount}个）`, 'error');
         return;
       }
@@ -870,32 +906,32 @@ class UIManager {
       return;
     }
     
+    const upgrading = game.data.plans.some(p => p.isActive && p.type === 'upgrade' && p.onComplete?.buildingId === buildingId);
+    if (upgrading) {
+      this.showToast(`${building.name}正在升级中，请等待完成`, 'error');
+      return;
+    }
+    
     const upgradeDays = building.level + 2;
     
-    this.showConfirm(
-      '升级建筑',
-      `确定要升级${building.name}吗？\n消耗：${cost}金币\n工期：${upgradeDays}天`,
-      () => {
-        if (this.onAddPlan) {
-          const result = this.onAddPlan({
-            type: 'upgrade',
-            target: `${building.name} Lv${building.level} → Lv${building.level + 1}`,
-            days: upgradeDays,
-            cost: cost,
-            onComplete: {
-              buildingId: buildingId
-            }
-          });
-          
-          if (result.success) {
-            this.showToast(`已开始升级${building.name}`);
-            this.render();
-          } else {
-            this.showToast(result.message, 'error');
-          }
+    if (this.onAddPlan) {
+      const result = this.onAddPlan({
+        type: 'upgrade',
+        target: `${building.name} Lv${building.level} → Lv${building.level + 1}`,
+        days: upgradeDays,
+        cost: cost,
+        onComplete: {
+          buildingId: buildingId
         }
+      });
+      
+      if (result.success) {
+        this.showToast(`已开始升级${building.name}`);
+        this.render();
+      } else {
+        this.showToast(result.message, 'error');
       }
-    );
+    }
   }
 
   handleHarvest(cropId) {
@@ -935,12 +971,13 @@ class UIManager {
   renderLogEntry(log) {
     const weatherIcon = this.getWeatherIcon(log.events);
     const weatherName = WEATHER_TYPES[log.events]?.name || '晴';
+    const seasonName = log.season && SEASONS[log.season] ? SEASONS[log.season].name + '季 · ' : '';
     
     return `
       <div class="log-entry">
         <div class="log-header">
           <span class="log-day">第${log.day}天</span>
-          <span class="log-weather">${weatherIcon} ${weatherName}</span>
+          <span class="log-weather">${seasonName}${weatherIcon} ${weatherName}</span>
         </div>
         <div class="log-stats">
           <span class="log-gold">收入：${log.goldEarned}金币</span>
@@ -971,6 +1008,8 @@ class UIManager {
         return `收到${logItem.data.from}的信件`;
       case 'coop_income':
         return `鸡舍产出，+${logItem.data.gold}金币`;
+      case 'season_change':
+        return `季节变换，进入了${logItem.data.seasonName}季`;
       default:
         return '';
     }
@@ -1063,6 +1102,54 @@ class UIManager {
     setTimeout(() => {
       this.elements.toast?.classList.remove('active');
     }, 3000);
+  }
+
+  showDebugModal() {
+    const gold = Number(game.data.gold) || 0;
+    
+    this.showModal('调试工具', `
+      <div class="debug-panel">
+        <div class="debug-section">
+          <h4 class="debug-title">修改金币</h4>
+          <div class="debug-row">
+            <input type="number" id="debug-gold-input" value="${gold}" min="0">
+            <button class="btn btn-primary" id="debug-set-gold">设置金币</button>
+          </div>
+        </div>
+        <div class="debug-section">
+          <h4 class="debug-title">跳过天数</h4>
+          <div class="debug-row">
+            <input type="number" id="debug-days-input" value="1" min="1" max="365">
+            <button class="btn btn-primary" id="debug-skip-days">跳过</button>
+          </div>
+          <p class="debug-tip">当前第 ${game.data.day} 天，跳过会自动结算计划、作物、天气和事件</p>
+        </div>
+      </div>
+    `);
+    
+    document.getElementById('debug-set-gold')?.addEventListener('click', () => {
+      const value = parseInt(document.getElementById('debug-gold-input').value);
+      if (isNaN(value) || value < 0) {
+        this.showToast('请输入有效的金币数量', 'error');
+        return;
+      }
+      game.data.gold = value;
+      game.save();
+      this.render();
+      this.showToast(`金币已设置为 ${value}`);
+    });
+    
+    document.getElementById('debug-skip-days')?.addEventListener('click', () => {
+      const count = parseInt(document.getElementById('debug-days-input').value);
+      if (isNaN(count) || count < 1 || count > 365) {
+        this.showToast('请输入1-365之间的天数', 'error');
+        return;
+      }
+      this.hideModal();
+      game.skipDays(count);
+      this.render();
+      this.showToast(`已跳过 ${count} 天，当前第 ${game.data.day} 天`);
+    });
   }
 
   getWeatherIcon(weather) {

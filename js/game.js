@@ -12,6 +12,7 @@ class Game {
     this.todayEvents = [];
     this.todayLogs = [];
     this.pendingCrops = [];
+    this.flipLogCount = 0;
   }
 
   initGame(slot = 1) {
@@ -34,6 +35,7 @@ class Game {
       dailyLogs: []
     };
     this.pendingCrops = [];
+    this.flipLogCount = 0;
     this.triggerDayLetters();
     this.save();
     return this.data;
@@ -58,6 +60,9 @@ class Game {
       this.data = saved;
       this.currentSlot = saved.slot || this.currentSlot;
       this.pendingCrops = saved.pendingCrops || [];
+      this.todayLogs = [];
+      this.todayEvents = [];
+      this.flipLogCount = 0;
       if (!this.data.farm.cropsPerLand) {
         this.data.farm.cropsPerLand = 2;
       }
@@ -159,11 +164,39 @@ class Game {
     };
   }
 
+  finalizeCurrentDayLogs() {
+    const playerLogs = this.todayLogs.slice(this.flipLogCount || 0);
+    if (playerLogs.length === 0) return;
+
+    const dayIncome = playerLogs
+      .filter(l => l.type === 'harvest' || l.type === 'coop_income')
+      .reduce((sum, l) => sum + (l.data.gold || 0), 0);
+    const dayHarvests = playerLogs.filter(l => l.type === 'harvest').length;
+
+    const lastEntry = this.data.dailyLogs[this.data.dailyLogs.length - 1];
+    if (lastEntry && lastEntry.day === this.data.day) {
+      lastEntry.logs = [...(lastEntry.logs || []), ...playerLogs];
+      lastEntry.goldEarned = (lastEntry.goldEarned || 0) + dayIncome;
+      lastEntry.cropsHarvested = (lastEntry.cropsHarvested || 0) + dayHarvests;
+    } else {
+      this.data.dailyLogs.push({
+        day: this.data.day,
+        season: this.getSeason(),
+        goldEarned: dayIncome,
+        cropsHarvested: dayHarvests,
+        events: this.currentWeather,
+        logs: [...playerLogs]
+      });
+    }
+  }
+
   async flipPage(onProgress) {
     if (this.isFlipping) return false;
     this.isFlipping = true;
+    this.finalizeCurrentDayLogs();
     this.todayEvents = [];
     this.todayLogs = [];
+    this.flipLogCount = 0;
 
     if (onProgress) onProgress('validating');
     await this.delay(100);
@@ -203,13 +236,17 @@ class Game {
     if (onProgress) onProgress('lettersTriggered');
     await this.delay(100);
 
+    this.processSeasonEvents();
+
     this.data.dailyLogs.push({
       day: this.data.day,
-      goldEarned: this.todayLogs.filter(l => l.type === 'harvest' || l.type === 'coop_income').reduce((sum, l) => sum + (l.gold || 0), 0),
+      season: this.getSeason(),
+      goldEarned: this.todayLogs.filter(l => l.type === 'harvest' || l.type === 'coop_income').reduce((sum, l) => sum + (l.data.gold || 0), 0),
       cropsHarvested: this.todayLogs.filter(l => l.type === 'harvest').length,
       events: this.currentWeather,
-      logs: this.todayLogs
+      logs: this.todayLogs.slice()
     });
+    this.flipLogCount = this.todayLogs.length;
 
     this.save();
     if (onProgress) onProgress('saved');
@@ -220,9 +257,112 @@ class Game {
     return true;
   }
 
+  skipDays(count) {
+    if (this.isFlipping) return false;
+    this.isFlipping = true;
+
+    for (let i = 0; i < count; i++) {
+      this.finalizeCurrentDayLogs();
+      this.todayEvents = [];
+      this.todayLogs = [];
+      this.flipLogCount = 0;
+
+      this.data.day += 1;
+      this.plantPendingCrops();
+      this.executePlans();
+      this.collectBuildingIncome();
+      this.growCrops();
+      this.generateWeather();
+      this.triggerSpecialEvents();
+      this.triggerLetters();
+      this.processSeasonEvents();
+
+      this.data.dailyLogs.push({
+        day: this.data.day,
+        season: this.getSeason(),
+        goldEarned: this.todayLogs.filter(l => l.type === 'harvest' || l.type === 'coop_income').reduce((sum, l) => sum + (l.data.gold || 0), 0),
+        cropsHarvested: this.todayLogs.filter(l => l.type === 'harvest').length,
+        events: this.currentWeather,
+        logs: this.todayLogs.slice()
+      });
+      this.flipLogCount = this.todayLogs.length;
+    }
+
+    this.save();
+    this.isFlipping = false;
+    return true;
+  }
+
+  processSeasonEvents() {
+    if (this.data.day > 1 && this.getSeasonDay() === 1) {
+      this.addLog('season_change', {
+        seasonName: this.getSeasonInfo().name
+      });
+    }
+
+    if (this.data.day % CONFIG.SEASON_DAYS === 0) {
+      this.generateSeasonReportLetter();
+    }
+  }
+
+  generateSeasonReportLetter() {
+    const days = CONFIG.SEASON_DAYS;
+    const startDay = this.data.day - days + 1;
+    const recentLogs = this.data.dailyLogs.filter(l => l.day >= startDay && l.day <= this.data.day);
+
+    const totalIncome = recentLogs.reduce((sum, l) => sum + (l.goldEarned || 0), 0)
+      + this.todayLogs.filter(l => l.type === 'harvest' || l.type === 'coop_income').reduce((sum, l) => sum + (l.data.gold || 0), 0);
+    const totalHarvests = recentLogs.reduce((sum, l) => sum + (l.cropsHarvested || 0), 0)
+      + this.todayLogs.filter(l => l.type === 'harvest').length;
+    let planCompletions = 0;
+    let plantings = 0;
+    const scanLogs = (logs) => {
+      (logs || []).forEach(log => {
+        if (log.type === 'plan_complete') planCompletions += 1;
+        if (log.type === 'crop_planted') plantings += 1;
+      });
+    };
+    recentLogs.forEach(l => scanLogs(l.logs));
+    scanLogs(this.todayLogs);
+
+    const totalActions = totalHarvests + planCompletions + plantings;
+
+    let title, content;
+
+    if (totalActions === 0) {
+      title = '一封沉默的信';
+      content = '......\n\n我看不出来你做了什么。\n\n这片土地需要耕耘才会有收获。我把农场交给你，不是让它荒废的。\n\n—— 老农场主';
+    } else if (totalIncome >= 200) {
+      title = '来自老农场主的夸赞';
+      content = `我一直在远处看着这片农场。\n\n这${days}天，你收获了${totalHarvests}次作物，赚到了${totalIncome}金币。干得漂亮！\n\n看来我把农场交给你是对的，继续保持。\n\n—— 老农场主`;
+    } else {
+      title = '来自老农场主的鼓励';
+      content = `我一直在远处看着这片农场。\n\n这${days}天，你收获了${totalHarvests}次作物，赚到了${totalIncome}金币。收入还不太理想，但别灰心。\n\n记住：春季作物长得快，冬季卖价最高。多种多收，农场会慢慢好起来的。\n\n—— 老农场主`;
+    }
+
+    const letter = {
+      id: 'letter_season_' + this.data.day + '_' + Date.now(),
+      from: '👴 老农场主',
+      title: title,
+      content: content,
+      isRead: false,
+      triggerDay: this.data.day,
+      hasReply: false,
+      replyOptions: [],
+      isTriggered: true
+    };
+
+    this.data.letters.push(letter);
+    this.addLog('letter', {
+      from: letter.from,
+      title: letter.title
+    });
+  }
+
   plantPendingCrops() {
     const cropsToPlant = [...this.pendingCrops];
     this.pendingCrops = [];
+    const season = this.getSeasonInfo();
 
     cropsToPlant.forEach(pendingCrop => {
       const crop = {
@@ -230,7 +370,7 @@ class Game {
         name: pendingCrop.name,
         type: pendingCrop.type,
         plantDate: this.data.day,
-        daysToHarvest: pendingCrop.daysToHarvest,
+        daysToHarvest: Math.max(1, Math.round(pendingCrop.daysToHarvest * season.growthMultiplier)),
         status: 'growing'
       };
       this.data.farm.crops.push(crop);
@@ -359,7 +499,7 @@ class Game {
         if (event.goldMultiplier) {
           const harvestBonus = this.todayLogs
             .filter(l => l.type === 'harvest')
-            .reduce((sum, l) => sum + (l.gold || 0), 0);
+            .reduce((sum, l) => sum + (l.data.gold || 0), 0);
           const bonus = Math.floor(harvestBonus * (event.goldMultiplier - 1));
           this.data.gold = gold + bonus;
         }
@@ -408,9 +548,12 @@ class Game {
   }
 
   addBuilding(buildingData) {
+    const def = BUILDING_TYPES[buildingData.type] || {};
+    const sameTypeCount = this.data.farm.buildings.filter(b => b.type === buildingData.type).length;
+    const baseName = def.name || buildingData.name || '建筑';
     const building = {
-      id: buildingData.type + '_' + Date.now(),
-      name: buildingData.name,
+      id: buildingData.type + '_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+      name: `${baseName}${sameTypeCount + 1}`,
       type: buildingData.type,
       level: 1,
       status: 'built',
@@ -438,6 +581,9 @@ class Game {
     const cropType = CROP_TYPES[crop.type];
     const baseValue = cropType ? cropType.harvestValue : 30;
     let goldEarned = baseValue;
+    
+    const season = this.getSeasonInfo();
+    goldEarned = Math.floor(goldEarned * season.incomeMultiplier);
     
     const hasBarn = this.data.farm.buildings.some(b => b.type === 'barn' && b.status === 'built');
     if (hasBarn) {
@@ -480,7 +626,8 @@ class Game {
       const def = buildingType ? BUILDING_TYPES[buildingType] : null;
       if (def && def.maxCount) {
         const owned = this.data.farm.buildings.filter(b => b.type === buildingType).length;
-        if (owned >= def.maxCount) {
+        const queued = this.data.plans.filter(p => p.isActive && p.type === 'build' && p.onComplete?.buildingData?.type === buildingType).length;
+        if (owned + queued >= def.maxCount) {
           return { success: false, message: `${def.name}建造数量已达上限（${def.maxCount}个）` };
         }
       }
@@ -489,8 +636,15 @@ class Game {
     if (planData.type === 'upgrade') {
       const building = this.getBuildingById(planData.onComplete?.buildingId);
       const maxLevel = CONFIG.MAX_BUILDING_LEVEL || 3;
-      if (building && building.level >= maxLevel) {
+      if (!building) {
+        return { success: false, message: '建筑不存在' };
+      }
+      if (building.level >= maxLevel) {
         return { success: false, message: `${building.name}已达最高等级` };
+      }
+      const upgrading = this.data.plans.some(p => p.isActive && p.type === 'upgrade' && p.onComplete?.buildingId === building.id);
+      if (upgrading) {
+        return { success: false, message: `${building.name}正在升级中，请等待完成` };
       }
     }
     
@@ -504,7 +658,7 @@ class Game {
     }
     
     const plan = {
-      id: 'plan_' + Date.now(),
+      id: 'plan_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
       type: planData.type,
       target: planData.target,
       daysRemaining: planData.days,
@@ -605,6 +759,19 @@ class Game {
     return WEATHER_TYPES[this.currentWeather]?.name || '晴';
   }
 
+  getSeason() {
+    const index = Math.floor((this.data.day - 1) / CONFIG.SEASON_DAYS) % SEASON_ORDER.length;
+    return SEASON_ORDER[index];
+  }
+
+  getSeasonInfo() {
+    return SEASONS[this.getSeason()] || SEASONS.spring;
+  }
+
+  getSeasonDay() {
+    return ((this.data.day - 1) % CONFIG.SEASON_DAYS) + 1;
+  }
+
   getTodaySummary() {
     const summary = [];
     
@@ -631,6 +798,9 @@ class Game {
             break;
           case 'coop_income':
             summary.push(`鸡舍产出，获得${log.data.gold}金币`);
+            break;
+          case 'season_change':
+            summary.push(`季节变换，进入了${log.data.seasonName}季`);
             break;
         }
       });
