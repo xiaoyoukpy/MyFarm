@@ -385,16 +385,35 @@ class Game {
       + this.todayLogs.filter(l => l.type === 'harvest').length;
     let planCompletions = 0;
     let plantings = 0;
+    let chickenBuys = 0;
+    let totalEggs = 0;
+    let totalLargeEggs = 0;
     const scanLogs = (logs) => {
       (logs || []).forEach(log => {
         if (log.type === 'plan_complete') planCompletions += 1;
         if (log.type === 'crop_planted') plantings += 1;
+        if (log.type === 'chicken_buy') chickenBuys += (log.data.count || 1);
+        if (log.type === 'egg_collect') {
+          totalEggs += (log.data.eggs || 0);
+          totalLargeEggs += (log.data.largeEggs || 0);
+        }
       });
     };
     recentLogs.forEach(l => scanLogs(l.logs));
     scanLogs(this.todayLogs);
 
-    const totalActions = totalHarvests + planCompletions + plantings;
+    const totalActions = totalHarvests + planCompletions + plantings + chickenBuys;
+    const totalEggCount = totalEggs + totalLargeEggs;
+
+    const eggComment = (() => {
+      if (totalEggCount > 0) {
+        return `听说你的母鸡们这${days}天下了${totalEggs}个鸡蛋和${totalLargeEggs}个大鸡蛋，养鸡有方！\n\n`;
+      }
+      if (chickenBuys > 0) {
+        return `母鸡刚买回来，等它们下蛋吧。\n\n`;
+      }
+      return `对了，还没开始养鸡？去建座鸡舍，母鸡的蛋可是笔稳定收入。\n\n`;
+    })();
 
     let title, content;
     const perfectIncome = CONFIG.PERFECT_SEASON_INCOME || 2500;
@@ -407,10 +426,10 @@ class Game {
       content = `这......这真的是我的农场吗？\n\n短短${days}天，你收获了${totalHarvests}次作物，赚到了${totalIncome}金币！我经营这片土地大半辈子，也从没见过这样的收成。\n\n居然能把农场经营得如此完美......每一块地、每一天都没有浪费。我没什么可教你的了，期待你的下一份成绩单。\n\n—— 老农场主`;
     } else if (totalIncome >= 500) {
       title = '来自老农场主的夸赞';
-      content = `我一直在远处看着这片农场。\n\n这${days}天，你收获了${totalHarvests}次作物，赚到了${totalIncome}金币。干得漂亮！\n\n看来我把农场交给你是对的，继续保持。\n\n—— 老农场主`;
+      content = `我一直在远处看着这片农场。\n\n这${days}天，你收获了${totalHarvests}次作物，赚到了${totalIncome}金币。干得漂亮！\n\n${eggComment}看来我把农场交给你是对的，继续保持。\n\n—— 老农场主`;
     } else {
       title = '来自老农场主的鼓励';
-      content = `我一直在远处看着这片农场。\n\n这${days}天，你收获了${totalHarvests}次作物，赚到了${totalIncome}金币。收入还不太理想，但别灰心。\n\n记住：春季作物长得快，冬季卖价最高。多种多收，农场会慢慢好起来的。\n\n—— 老农场主`;
+      content = `我一直在远处看着这片农场。\n\n这${days}天，你收获了${totalHarvests}次作物，赚到了${totalIncome}金币。收入还不太理想，但别灰心。\n\n${eggComment}记住：春季作物长得快，冬季卖价最高。多种多收，农场会慢慢好起来的。\n\n—— 老农场主`;
     }
 
     const letter = {
@@ -831,6 +850,40 @@ class Game {
       cropName: cropType ? cropType.name : type,
       count: count,
       gold: gold
+    };
+  }
+
+  sellAllCrops() {
+    if (!Array.isArray(this.data.warehouse) || this.data.warehouse.length === 0) {
+      return { success: false, message: '仓库是空的' };
+    }
+    
+    let totalGold = 0;
+    let totalCount = 0;
+    const items = [...this.data.warehouse];
+    
+    items.forEach(w => {
+      const cropType = CROP_TYPES[w.type];
+      const unitPrice = this.getSellPrice(w.type);
+      const gold = unitPrice * w.count;
+      this.data.gold = (this.data.gold || 0) + gold;
+      this.trackCropStat(w.type, 'sold', w.count);
+      this.addLog('sell', {
+        cropName: cropType ? cropType.name : w.type,
+        count: w.count,
+        gold: gold
+      });
+      totalGold += gold;
+      totalCount += w.count;
+    });
+    
+    this.data.warehouse = [];
+    this.save();
+    
+    return {
+      success: true,
+      count: totalCount,
+      gold: totalGold
     };
   }
 

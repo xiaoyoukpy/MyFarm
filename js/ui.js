@@ -322,7 +322,7 @@ class UIManager {
         <div class="ranch-coop">
           <div class="ranch-coop-info">
             <div class="ranch-chickens">
-              ${Array.from({ length: chickens }, (_, i) => '<span class="inline-icon"><span class="icon-chick"></span></span>').join('')}
+              ${Array.from({ length: chickens }, () => '<span class="ranch-hen"><img src="assets/Hen.png" alt="母鸡" onerror="this.parentElement.classList.add(\'missing\')"></span>').join('')}
               ${Array.from({ length: Math.max(0, capacity - chickens) }, () => '<span class="ranch-empty-slot"></span>').join('')}
             </div>
             <div class="ranch-count">母鸡 ${chickens}/${capacity}（${coops.length} 座鸡舍）</div>
@@ -902,7 +902,11 @@ class UIManager {
         </div>
       `;
     } else {
+      const totalCount = warehouse.reduce((sum, w) => sum + w.count, 0);
       listHtml = `
+        <button class="btn btn-sell-all" id="btn-sell-all">
+          💰 一键出售全部 ${totalCount} 件货物（约 ${totalValue} 金币）
+        </button>
         <div class="card-list">
           ${warehouse.map(w => this.renderWarehouseItem(w)).join('')}
         </div>
@@ -921,6 +925,23 @@ class UIManager {
         e.stopPropagation();
         this.showSellModal(btn.dataset.cropType);
       });
+    });
+    
+    document.getElementById('btn-sell-all')?.addEventListener('click', () => {
+      const totalCount = warehouse.reduce((sum, w) => sum + w.count, 0);
+      this.showConfirm(
+        '一键出售全部',
+        `确定以当前价格出售仓库全部 ${totalCount} 件货物吗？\n预计收入：${totalValue} 金币`,
+        () => {
+          const result = game.sellAllCrops();
+          if (result.success) {
+            this.showToast(`出售了${result.count}件货物，获得${result.gold}金币`);
+            this.render();
+          } else {
+            this.showToast(result.message, 'error');
+          }
+        }
+      );
     });
   }
 

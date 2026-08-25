@@ -331,6 +331,23 @@
   color: var(--ink-lighter);
 }
 
+.btn-sell-all {
+  width: 100%;
+  margin-bottom: 18px;
+  padding: 13px 20px;
+  background: var(--accent-color);
+  color: white;
+  font-weight: 600;
+  border-radius: var(--border-radius);
+  transition: all var(--transition-fast);
+}
+
+.btn-sell-all:hover {
+  background: var(--accent-dark);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-light);
+}
+
 /* 出售弹窗 */
 .sell-panel {
   padding: 5px 0;
@@ -512,38 +529,65 @@
 .ranch-coop {
   background: var(--paper-dark);
   border-radius: var(--border-radius);
-  padding: 22px 25px;
+  padding: 28px 30px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 20px;
+  gap: 25px;
   margin-bottom: 15px;
 }
 
 .ranch-coop-info {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 14px;
 }
 
 .ranch-chickens {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 14px;
   align-items: center;
-  min-height: 32px;
+  min-height: 60px;
+  padding: 6px 4px;
+}
+
+.ranch-hen {
+  display: inline-block;
+  width: 56px;
+  height: 56px;
+}
+
+.ranch-hen img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  filter: drop-shadow(1px 2px 2px rgba(44, 24, 16, 0.2));
+}
+
+.ranch-hen.missing img {
+  display: none;
+}
+
+.ranch-hen.missing::after {
+  content: '🐔';
+  font-size: 44px;
+  line-height: 56px;
+  text-align: center;
+  display: block;
 }
 
 .ranch-empty-slot {
   display: inline-block;
-  width: 28px;
-  height: 28px;
+  width: 44px;
+  height: 44px;
   border: 2px dashed rgba(44, 24, 16, 0.2);
   border-radius: 50%;
 }
 
 .ranch-count {
-  font-size: 0.9rem;
+  font-size: 1rem;
   color: var(--ink-color);
   font-weight: 600;
 }
