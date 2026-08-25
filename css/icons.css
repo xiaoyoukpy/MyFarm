@@ -1,0 +1,377 @@
+/**
+ * icons.css - 纯CSS图标
+ * 天气图标、作物图标、建筑图标
+ */
+
+.icon {
+  display: inline-block;
+  position: relative;
+  vertical-align: middle;
+}
+
+/* 天气图标 */
+.weather-icon {
+  width: 40px;
+  height: 40px;
+  position: relative;
+}
+
+.weather-icon-sunny {
+  width: 24px;
+  height: 24px;
+  background: #f4a460;
+  border-radius: 50%;
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  box-shadow: 
+    0 0 0 3px rgba(244, 164, 96, 0.3),
+    0 0 10px rgba(244, 164, 96, 0.5);
+}
+
+.weather-icon-sunny::before,
+.weather-icon-sunny::after {
+  content: '';
+  position: absolute;
+  background: #f4a460;
+}
+
+.weather-icon-sunny::before {
+  width: 2px;
+  height: 8px;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  box-shadow: 
+    0 32px 0 #f4a460,
+    -12px -6px 0 #f4a460,
+    12px -6px 0 #f4a460,
+    -12px 20px 0 #f4a460,
+    12px 20px 0 #f4a460;
+}
+
+.weather-icon-rainy {
+  width: 30px;
+  height: 18px;
+  background: #8a9aa8;
+  border-radius: 15px 15px 5px 5px;
+  position: absolute;
+  top: 8px;
+  left: 5px;
+}
+
+.weather-icon-rainy::before {
+  content: '';
+  position: absolute;
+  width: 3px;
+  height: 8px;
+  background: #5a8aba;
+  border-radius: 0 0 2px 2px;
+  transform: rotate(15deg);
+  box-shadow: 
+    8px 4px 0 #5a8aba,
+    -6px 8px 0 #5a8aba,
+    14px 8px 0 #5a8aba,
+    2px 12px 0 #5a8aba;
+}
+
+.weather-icon-cloudy {
+  width: 32px;
+  height: 18px;
+  background: #b0b8c0;
+  border-radius: 18px;
+  position: absolute;
+  top: 12px;
+  left: 4px;
+}
+
+.weather-icon-cloudy::before {
+  content: '';
+  position: absolute;
+  width: 20px;
+  height: 14px;
+  background: #c8d0d8;
+  border-radius: 14px;
+  top: -8px;
+  left: 6px;
+}
+
+.weather-icon-cloudy::after {
+  content: '';
+  position: absolute;
+  width: 14px;
+  height: 10px;
+  background: #b8c0c8;
+  border-radius: 10px;
+  top: -4px;
+  left: 16px;
+}
+
+.weather-icon-snowy {
+  width: 30px;
+  height: 18px;
+  background: #d0d8e0;
+  border-radius: 15px 15px 5px 5px;
+  position: absolute;
+  top: 8px;
+  left: 5px;
+}
+
+.weather-icon-snowy::before {
+  content: '';
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  background: white;
+  border-radius: 50%;
+  box-shadow: 
+    -8px 8px 0 white,
+    6px 10px 0 white,
+    -2px 16px 0 white,
+    12px 14px 0 white;
+}
+
+/* 作物图标 */
+.crop-icon {
+  width: 32px;
+  height: 40px;
+  position: relative;
+}
+
+.crop-seedling {
+  width: 4px;
+  height: 16px;
+  background: #5a8a4a;
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.crop-seedling::before,
+.crop-seedling::after {
+  content: '';
+  position: absolute;
+  width: 10px;
+  height: 8px;
+  background: #7ab648;
+  border-radius: 0 80% 0 80%;
+}
+
+.crop-seedling::before {
+  top: 0;
+  left: -8px;
+  transform: rotate(-30deg);
+}
+
+.crop-seedling::after {
+  top: 4px;
+  right: -8px;
+  transform: rotate(30deg) scaleX(-1);
+}
+
+.crop-mature {
+  width: 6px;
+  height: 20px;
+  background: #5a8a4a;
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.crop-mature::before {
+  content: '';
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  background: #e87040;
+  border-radius: 50%;
+  top: -18px;
+  left: 50%;
+  transform: translateX(-50%);
+  box-shadow: inset -3px -3px 0 rgba(0, 0, 0, 0.1);
+}
+
+.crop-carrot::before {
+  background: #f4a460;
+}
+
+.crop-tomato::before {
+  background: #dc3545;
+}
+
+.crop-corn::before {
+  background: #ffd700;
+  border-radius: 30%;
+}
+
+.crop-potato::before {
+  background: #d2b48c;
+  border-radius: 40%;
+}
+
+/* 建筑图标 */
+.building-icon {
+  width: 40px;
+  height: 40px;
+  position: relative;
+}
+
+.building-barn {
+  width: 32px;
+  height: 24px;
+  background: #8b4513;
+  position: absolute;
+  bottom: 0;
+  left: 4px;
+}
+
+.building-barn::before {
+  content: '';
+  position: absolute;
+  width: 0;
+  height: 0;
+  border-left: 20px solid transparent;
+  border-right: 20px solid transparent;
+  border-bottom: 14px solid #a0522d;
+  top: -14px;
+  left: -4px;
+}
+
+.building-barn::after {
+  content: '';
+  position: absolute;
+  width: 10px;
+  height: 14px;
+  background: #654321;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  border-radius: 5px 5px 0 0;
+}
+
+.building-field {
+  width: 36px;
+  height: 8px;
+  background: #8b7355;
+  position: absolute;
+  bottom: 4px;
+  left: 2px;
+  border: 2px solid #654321;
+}
+
+.building-field::before {
+  content: '';
+  position: absolute;
+  width: 2px;
+  height: 100%;
+  background: #654321;
+  left: 33%;
+}
+
+.building-field::after {
+  content: '';
+  position: absolute;
+  width: 2px;
+  height: 100%;
+  background: #654321;
+  right: 33%;
+}
+
+.building-coop {
+  width: 28px;
+  height: 20px;
+  background: #daa520;
+  position: absolute;
+  bottom: 0;
+  left: 6px;
+  border-radius: 2px;
+}
+
+.building-coop::before {
+  content: '';
+  position: absolute;
+  width: 0;
+  height: 0;
+  border-left: 18px solid transparent;
+  border-right: 18px solid transparent;
+  border-bottom: 10px solid #cd9b1d;
+  top: -10px;
+  left: -4px;
+}
+
+.building-coop::after {
+  content: '';
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: #8b4513;
+  border-radius: 50%;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.building-well {
+  width: 20px;
+  height: 20px;
+  background: #808080;
+  position: absolute;
+  bottom: 0;
+  left: 10px;
+  border-radius: 2px;
+}
+
+.building-well::before {
+  content: '';
+  position: absolute;
+  width: 24px;
+  height: 3px;
+  background: #654321;
+  top: -3px;
+  left: -2px;
+}
+
+.building-well::after {
+  content: '';
+  position: absolute;
+  width: 2px;
+  height: 12px;
+  background: #654321;
+  top: -15px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+/* 其他图标 */
+.icon-gold {
+  width: 16px;
+  height: 16px;
+  background: linear-gradient(135deg, #ffd700 0%, #daa520 100%);
+  border-radius: 50%;
+  display: inline-block;
+  box-shadow: 
+    inset -1px -1px 0 rgba(0, 0, 0, 0.2),
+    0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.icon-day {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--ink-light);
+  border-radius: 2px;
+  display: inline-block;
+  position: relative;
+}
+
+.icon-day::before {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: 2px;
+  width: 8px;
+  height: 3px;
+  background: var(--ink-light);
+  border-radius: 1px;
+}

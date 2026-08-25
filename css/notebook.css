@@ -1,0 +1,254 @@
+/**
+ * notebook.css - 笔记本外观样式
+ * 纸张纹理、阴影效果、复古风格
+ */
+
+.notebook {
+  width: 100%;
+  max-width: 1450px;
+  min-height: calc(100vh - 40px);
+  background: var(--paper-color);
+  border-radius: 12px;
+  box-shadow: 
+    var(--shadow-heavy),
+    0 0 0 1px rgba(44, 24, 16, 0.05);
+  position: relative;
+  overflow: hidden;
+}
+
+.notebook::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: 
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 29px,
+      rgba(44, 24, 16, 0.03) 29px,
+      rgba(44, 24, 16, 0.03) 30px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 29px,
+      rgba(44, 24, 16, 0.03) 29px,
+      rgba(44, 24, 16, 0.03) 30px
+    );
+  pointer-events: none;
+  z-index: 0;
+}
+
+.notebook-header {
+  background: linear-gradient(135deg, var(--accent-color) 0%, var(--accent-dark) 100%);
+  color: var(--paper-color);
+  padding: 25px 35px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: relative;
+  z-index: 2;
+}
+
+.notebook-header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--accent-dark),
+    var(--accent-dark) 8px,
+    transparent 8px,
+    transparent 12px
+  );
+}
+
+.notebook-title {
+  font-family: var(--font-display);
+  font-size: 1.8rem;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+}
+
+.notebook-meta {
+  display: flex;
+  gap: 20px;
+  font-size: 0.95rem;
+  opacity: 0.95;
+}
+
+.notebook-meta span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.notebook-body {
+  display: flex;
+  min-height: calc(100vh - 200px);
+  position: relative;
+  z-index: 2;
+}
+
+.notebook-sidebar {
+  width: 220px;
+  background: linear-gradient(180deg, var(--paper-dark) 0%, var(--paper-color) 100%);
+  border-right: 1px solid rgba(44, 24, 16, 0.1);
+  padding: 30px 0;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.notebook-sidebar::before {
+  content: '';
+  position: absolute;
+  top: 20px;
+  right: 0;
+  bottom: 20px;
+  width: 1px;
+  background: linear-gradient(
+    180deg,
+    transparent,
+    rgba(44, 24, 16, 0.1) 20%,
+    rgba(44, 24, 16, 0.1) 80%,
+    transparent
+  );
+}
+
+.notebook-content {
+  flex: 1;
+  padding: 40px 60px 40px 70px;
+  position: relative;
+  background: 
+    linear-gradient(
+      180deg,
+      transparent 0%,
+      rgba(44, 24, 16, 0.02) 50%,
+      transparent 100%
+    );
+  min-height: 100%;
+}
+
+.notebook-footer {
+  background: var(--paper-dark);
+  border-top: 1px solid rgba(44, 24, 16, 0.1);
+  padding: 25px 35px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  z-index: 2;
+  gap: 25px;
+}
+
+.notebook-footer::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(
+    90deg,
+    var(--accent-dark),
+    var(--accent-color),
+    var(--accent-dark)
+  );
+}
+
+.page-corner {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 50px;
+  height: 50px;
+  background: linear-gradient(
+    135deg,
+    transparent 50%,
+    var(--paper-dark) 50%
+  );
+  box-shadow: -2px -2px 4px rgba(0, 0, 0, 0.05);
+  z-index: 3;
+}
+
+.page-corner::after {
+  content: '';
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 0 0 15px 15px;
+  border-color: transparent transparent var(--paper-color) transparent;
+  opacity: 0.5;
+}
+
+.tape {
+  position: absolute;
+  background: rgba(255, 255, 200, 0.7);
+  border: 1px solid rgba(200, 180, 100, 0.5);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  z-index: 10;
+}
+
+.tape-top {
+  top: -5px;
+  left: 50%;
+  transform: translateX(-50%) rotate(-2deg);
+  width: 80px;
+  height: 25px;
+}
+
+.tape-left {
+  left: -5px;
+  top: 50%;
+  transform: translateY(-50%) rotate(2deg);
+  width: 25px;
+  height: 80px;
+}
+
+.tape-right {
+  right: -5px;
+  top: 50%;
+  transform: translateY(-50%) rotate(-2deg);
+  width: 25px;
+  height: 80px;
+}
+
+.stain {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(139, 90, 43, 0.08) 0%,
+    transparent 70%
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
+.stain-1 {
+  width: 100px;
+  height: 80px;
+  top: 150px;
+  right: 50px;
+  transform: rotate(15deg);
+}
+
+.stain-2 {
+  width: 60px;
+  height: 60px;
+  bottom: 100px;
+  left: 80px;
+  transform: rotate(-10deg);
+}

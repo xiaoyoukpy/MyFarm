@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="我的农场 - 一款笔记本风格的农场经营模拟游戏">
+  <title>我的农场 - My Farm</title>
+  
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/notebook.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/icons.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/animations.css">
+  <link rel="stylesheet" href="css/menu.css">
+</head>
+<body>
+  <div id="app">
+    <div id="menu-screen" class="menu-screen">
+      <div class="menu-container">
+        <div class="menu-header">
+          <div class="menu-title-icon">📓</div>
+          <h1 class="menu-title">我的农场</h1>
+          <p class="menu-subtitle">笔记本风格农场经营模拟游戏</p>
+        </div>
+        
+        <div class="menu-content">
+          <div class="menu-main-buttons" id="menu-main-buttons">
+            <button class="btn btn-menu-main" id="btn-start-game">开始游戏</button>
+            <button class="btn btn-menu-main" id="btn-continue-game">继续游戏</button>
+            <button class="btn btn-menu-main btn-menu-exit" id="btn-exit-game">退出游戏</button>
+          </div>
+          
+          <div id="menu-save-selection" class="hidden">
+            <div class="menu-section">
+              <h2 class="menu-section-title">选择存档</h2>
+              <div id="save-slots" class="save-slots">
+              </div>
+              <button class="btn btn-back-menu" id="btn-back-to-menu">← 返回</button>
+            </div>
+          </div>
+        </div>
+        
+        <div class="menu-footer">
+          <p class="menu-tip">提示：游戏会自动保存进度</p>
+        </div>
+      </div>
+    </div>
+
+    <div id="game-screen" class="game-screen hidden">
+      <div class="notebook notebook-game">
+        <div class="tape tape-top"></div>
+        
+        <header class="notebook-header">
+          <div class="header-left">
+            <button id="menu-button" class="btn btn-icon" aria-label="返回主菜单">
+              <span class="btn-icon-text">☰</span>
+            </button>
+            <h1 class="notebook-title">我的农场</h1>
+          </div>
+          <div class="notebook-meta">
+            <span id="day-display">第 1 天</span>
+            <span>
+              <span class="icon-gold"></span>
+              <span id="gold-display">100</span>
+            </span>
+          </div>
+        </header>
+        
+        <main class="notebook-body">
+          <nav class="notebook-sidebar">
+            <button class="nav-item active" data-tab="letters" aria-label="通讯">
+              <span class="nav-item-label">
+                <span class="nav-item-icon">📬</span>
+                <span>通讯</span>
+              </span>
+              <span class="nav-badge" style="display: none;">0</span>
+            </button>
+            
+            <button class="nav-item" data-tab="farm" aria-label="农场情况">
+              <span class="nav-item-label">
+                <span class="nav-item-icon">🌾</span>
+                <span>农场情况</span>
+              </span>
+            </button>
+            
+            <button class="nav-item" data-tab="plans" aria-label="计划项目">
+              <span class="nav-item-label">
+                <span class="nav-item-icon">📋</span>
+                <span>计划项目</span>
+              </span>
+            </button>
+            
+            <button class="nav-item" data-tab="logs" aria-label="日志">
+              <span class="nav-item-label">
+                <span class="nav-item-icon">📊</span>
+                <span>日志</span>
+              </span>
+            </button>
+          </nav>
+          
+          <section class="notebook-content">
+            <div id="tab-letters" class="tab-content active">
+            </div>
+            
+            <div id="tab-farm" class="tab-content">
+            </div>
+            
+            <div id="tab-plans" class="tab-content">
+            </div>
+            
+            <div id="tab-logs" class="tab-content">
+            </div>
+          </section>
+        </main>
+        
+        <footer class="notebook-footer">
+          <button id="flip-button" class="btn btn-flip" aria-label="翻到下一页">
+            📖 翻到下一页
+          </button>
+          <button id="reset-button" class="btn btn-sm btn-footer" aria-label="重置游戏">
+            重置存档
+          </button>
+        </footer>
+        
+        <div class="page-corner"></div>
+        <div class="stain stain-1"></div>
+        <div class="stain stain-2"></div>
+      </div>
+    </div>
+  </div>
+  
+  <div id="modal" class="modal-overlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="modal-title" class="modal-title"></h2>
+        <button class="modal-close" aria-label="关闭">✕</button>
+      </div>
+      <div id="modal-content" class="modal-body">
+      </div>
+      <div id="modal-actions" class="modal-footer">
+      </div>
+    </div>
+  </div>
+  
+  <div id="toast" class="toast">
+    <span id="toast-message"></span>
+  </div>
+  
+  <script src="js/data.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

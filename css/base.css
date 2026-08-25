@@ -1,0 +1,188 @@
+/**
+ * base.css - 基础样式
+ * CSS变量定义、样式重置、字体引入
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=ZCOOL+XiaoWei&family=Noto+Serif+SC:wght@400;600;700&display=swap');
+
+:root {
+  --paper-color: #fcf8f0;
+  --paper-dark: #f5edd6;
+  --ink-color: #2c1810;
+  --ink-light: #5a4a3a;
+  --ink-lighter: #8a7a6a;
+  --accent-color: #c9a66b;
+  --accent-dark: #a67c52;
+  --success-color: #5a8a4a;
+  --warning-color: #c9a62b;
+  --danger-color: #a64a4a;
+  --info-color: #4a6a8a;
+  
+  --shadow-light: 0 2px 4px rgba(44, 24, 16, 0.1);
+  --shadow-medium: 0 4px 8px rgba(44, 24, 16, 0.15);
+  --shadow-heavy: 0 6px 12px rgba(44, 24, 16, 0.2);
+  
+  --font-display: 'Ma Shan Zheng', cursive;
+  --font-heading: 'ZCOOL XiaoWei', serif;
+  --font-body: 'Noto Serif SC', serif;
+  
+  --border-radius: 4px;
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.3s ease;
+  --transition-slow: 0.5s ease;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+  scroll-behavior: smooth;
+}
+
+#app {
+  width: 100%;
+}
+
+body {
+  font-family: var(--font-body);
+  color: var(--ink-color);
+  background-color: #e8e0d0;
+  background-image: 
+    linear-gradient(45deg, #e0d8c8 25%, transparent 25%),
+    linear-gradient(-45deg, #e0d8c8 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #e0d8c8 75%),
+    linear-gradient(-45deg, transparent 75%, #e0d8c8 75%);
+  background-size: 20px 20px;
+  background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+  line-height: 1.6;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 0;
+  margin: 0;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  line-height: 1.3;
+  margin-bottom: 0.5em;
+}
+
+h1 { font-size: 2rem; }
+h2 { font-size: 1.5rem; }
+h3 { font-size: 1.25rem; }
+h4 { font-size: 1.1rem; }
+
+p {
+  margin-bottom: 1em;
+}
+
+a {
+  color: var(--accent-dark);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+a:hover {
+  color: var(--ink-color);
+}
+
+button {
+  font-family: var(--font-body);
+  cursor: pointer;
+  border: none;
+  background: none;
+  font-size: inherit;
+  color: inherit;
+}
+
+button:focus {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+ul, ol {
+  list-style: none;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+input, textarea, select {
+  font-family: var(--font-body);
+  font-size: 1rem;
+  color: var(--ink-color);
+  background-color: var(--paper-color);
+  border: 1px solid var(--ink-lighter);
+  border-radius: var(--border-radius);
+  padding: 8px 12px;
+  transition: border-color var(--transition-fast);
+}
+
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  border-color: var(--accent-color);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--paper-dark);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--ink-lighter);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-light);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.text-center { text-align: center; }
+.text-left { text-align: left; }
+.text-right { text-align: right; }
+
+.mt-1 { margin-top: 0.5rem; }
+.mt-2 { margin-top: 1rem; }
+.mt-3 { margin-top: 1.5rem; }
+.mt-4 { margin-top: 2rem; }
+
+.mb-1 { margin-bottom: 0.5rem; }
+.mb-2 { margin-bottom: 1rem; }
+.mb-3 { margin-bottom: 1.5rem; }
+.mb-4 { margin-bottom: 2rem; }
+
+.hidden { display: none !important; }
+.visible { visibility: visible; }
+.invisible { visibility: hidden; }

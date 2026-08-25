@@ -1,0 +1,290 @@
+/**
+ * menu.css - 主菜单样式
+ * 菜单界面、存档选择
+ */
+
+.menu-screen {
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.game-screen {
+  width: 100%;
+  min-height: 100vh;
+  padding: 20px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.menu-container {
+  width: 100%;
+  background: var(--paper-color);
+  border-radius: 12px;
+  box-shadow: var(--shadow-heavy);
+  overflow: hidden;
+}
+
+.menu-header {
+  background: linear-gradient(135deg, var(--accent-color) 0%, var(--accent-dark) 100%);
+  color: white;
+  padding: 40px 30px;
+  text-align: center;
+}
+
+.menu-title-icon {
+  font-size: 4rem;
+  margin-bottom: 15px;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.menu-title {
+  font-family: var(--font-display);
+  font-size: 2.5rem;
+  margin-bottom: 10px;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.menu-subtitle {
+  font-size: 1rem;
+  opacity: 0.9;
+}
+
+.menu-content {
+  padding: 30px;
+}
+
+/* 主菜单按钮 */
+.menu-main-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  align-items: center;
+  padding: 20px 0;
+}
+
+.btn-menu-main {
+  width: 200px;
+  padding: 15px 30px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  border-radius: 8px;
+  background: var(--paper-dark);
+  border: 2px solid rgba(44, 24, 16, 0.15);
+  color: var(--ink-color);
+  transition: all var(--transition-fast);
+}
+
+.btn-menu-main:hover {
+  background: var(--accent-color);
+  color: white;
+  border-color: var(--accent-color);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-light);
+}
+
+.btn-menu-exit {
+  margin-top: 10px;
+}
+
+.btn-menu-exit:hover {
+  background: #d32f2f;
+  border-color: #d32f2f;
+}
+
+.btn-back-menu {
+  margin-top: 20px;
+  padding: 10px 20px;
+  background: transparent;
+  border: 1px solid rgba(44, 24, 16, 0.2);
+  color: var(--ink-lighter);
+  border-radius: 6px;
+  transition: all var(--transition-fast);
+}
+
+.btn-back-menu:hover {
+  background: var(--paper-dark);
+  color: var(--ink-color);
+}
+
+.menu-section {
+  margin-bottom: 25px;
+}
+
+.menu-section-title {
+  font-family: var(--font-heading);
+  font-size: 1.2rem;
+  color: var(--ink-color);
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid rgba(44, 24, 16, 0.1);
+}
+
+.save-slots {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.save-slot {
+  background: var(--paper-dark);
+  border: 2px solid rgba(44, 24, 16, 0.1);
+  border-radius: 8px;
+  padding: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all var(--transition-fast);
+}
+
+.save-slot:hover {
+  border-color: var(--accent-color);
+  box-shadow: var(--shadow-light);
+}
+
+.save-slot.has-data {
+  border-left: 4px solid var(--accent-color);
+}
+
+.slot-info {
+  flex: 1;
+}
+
+.slot-main {
+  font-weight: 600;
+  font-size: 1.05rem;
+  margin-bottom: 5px;
+  color: var(--ink-color);
+}
+
+.slot-date {
+  font-size: 0.85rem;
+  color: var(--ink-lighter);
+}
+
+.slot-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.btn-slot-create,
+.btn-slot-load {
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-weight: 500;
+  transition: all var(--transition-fast);
+}
+
+.btn-slot-create {
+  background: var(--paper-color);
+  border: 1px solid var(--accent-color);
+  color: var(--accent-dark);
+}
+
+.btn-slot-create:hover {
+  background: var(--accent-color);
+  color: white;
+}
+
+.btn-slot-load {
+  background: var(--accent-color);
+  border: 1px solid var(--accent-color);
+  color: white;
+}
+
+.btn-slot-load:hover {
+  background: var(--accent-dark);
+}
+
+.btn-slot-delete {
+  background: transparent;
+  border: 1px solid #d32f2f;
+  color: #d32f2f;
+  padding: 10px 15px;
+  border-radius: 6px;
+  font-weight: 500;
+  transition: all var(--transition-fast);
+}
+
+.btn-slot-delete:hover {
+  background: #d32f2f;
+  color: white;
+}
+
+.menu-footer {
+  padding: 20px 30px;
+  background: var(--paper-dark);
+  text-align: center;
+}
+
+.menu-tip {
+  font-size: 0.9rem;
+  color: var(--ink-lighter);
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.btn-icon {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  transition: all var(--transition-fast);
+  border: none;
+  color: white;
+}
+
+.btn-icon:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.btn-icon-text {
+  font-size: 1.3rem;
+}
+
+.btn-footer {
+  margin-left: 15px;
+  opacity: 0.7;
+}
+
+.btn-footer:hover {
+  opacity: 1;
+}
+
+@media (max-width: 600px) {
+  .menu-title {
+    font-size: 2rem;
+  }
+  
+  .save-slot {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+  
+  .slot-actions {
+    width: 100%;
+  }
+  
+  .btn-slot-create,
+  .btn-slot-load {
+    flex: 1;
+  }
+}
