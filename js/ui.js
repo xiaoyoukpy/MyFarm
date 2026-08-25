@@ -272,13 +272,216 @@ class UIManager {
       case 'farm':
         this.renderFarm();
         break;
+      case 'warehouse':
+        this.renderWarehouse();
+        break;
+      case 'ranch':
+        this.renderRanch();
+        break;
       case 'plans':
         this.renderPlans();
         break;
       case 'logs':
         this.renderLogs();
         break;
+      case 'collection':
+        this.renderCollection();
+        break;
     }
+  }
+
+  renderRanch() {
+    const container = document.getElementById('tab-ranch');
+    if (!container) return;
+    
+    const coops = game.data.farm.buildings.filter(b => b.type === 'chickenCoop' && b.status === 'built');
+    const capacity = game.getCoopCapacity();
+    const chickens = game.getChickenCount();
+    const price = CONFIG.CHICKEN_PRICE || 50;
+    const full = chickens >= capacity;
+    
+    const todayEggs = game.todayLogs
+      .filter(l => l.type === 'egg_collect')
+      .reduce((acc, l) => ({ eggs: acc.eggs + l.data.eggs, largeEggs: acc.largeEggs + l.data.largeEggs }), { eggs: 0, largeEggs: 0 });
+    
+    const eggPrice = game.getSellPrice('egg');
+    const largeEggPrice = game.getSellPrice('largeEgg');
+    const layChance = Math.round((CONFIG.EGG_LAY_CHANCE || 0.6) * 100);
+    const largeChance = Math.round((CONFIG.LARGE_EGG_CHANCE || 0.1) * 100);
+    
+    let coopSection;
+    if (coops.length === 0) {
+      coopSection = `
+        <div class="empty-state">
+          <div class="empty-state-icon">🏠</div>
+          <div class="empty-state-text">还没有鸡舍，请先在「计划项目」中建造</div>
+        </div>
+      `;
+    } else {
+      coopSection = `
+        <div class="ranch-coop">
+          <div class="ranch-coop-info">
+            <div class="ranch-chickens">
+              ${Array.from({ length: chickens }, (_, i) => '<span class="inline-icon"><span class="icon-chick"></span></span>').join('')}
+              ${Array.from({ length: Math.max(0, capacity - chickens) }, () => '<span class="ranch-empty-slot"></span>').join('')}
+            </div>
+            <div class="ranch-count">母鸡 ${chickens}/${capacity}（${coops.length} 座鸡舍）</div>
+          </div>
+          <button class="btn btn-primary btn-buy-chicken" ${full ? 'disabled' : ''}>
+            ${full ? '容量已满' : `购买母鸡（${price}金币）`}
+          </button>
+        </div>
+        <div class="ranch-tip">
+          每只母鸡每天有 ${layChance}% 概率产蛋，产下的蛋有 ${largeChance}% 概率是大鸡蛋。<br>
+          产出的蛋自动存入仓库，可在「农场仓库」中出售。
+        </div>
+      `;
+    }
+    
+    container.innerHTML = `
+      <div class="content-section">
+        <h3 class="content-section-title">🐔 鸡舍</h3>
+        ${coopSection}
+      </div>
+      <div class="content-section">
+        <h3 class="content-section-title">🥚 蛋类产出</h3>
+        <div class="ranch-production">
+          <div class="ranch-production-item">
+            <span class="inline-icon"><span class="crop-icon crop-egg"></span></span>
+            <div class="ranch-production-info">
+              <div class="ranch-production-name">鸡蛋</div>
+              <div class="ranch-production-price">当前售价 ${eggPrice} 金币</div>
+            </div>
+            <div class="ranch-production-today">今日 +${todayEggs.eggs}</div>
+          </div>
+          <div class="ranch-production-item">
+            <span class="inline-icon"><span class="crop-icon crop-largeEgg"></span></span>
+            <div class="ranch-production-info">
+              <div class="ranch-production-name">大鸡蛋</div>
+              <div class="ranch-production-price">当前售价 ${largeEggPrice} 金币</div>
+            </div>
+            <div class="ranch-production-today">今日 +${todayEggs.largeEggs}</div>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    const buyBtn = container.querySelector('.btn-buy-chicken');
+    buyBtn?.addEventListener('click', () => {
+      const result = game.buyChicken();
+      if (result.success) {
+        this.showToast(`购买了一只母鸡（${chickens + 1}/${result.capacity}）`);
+        this.render();
+      } else {
+        this.showToast(result.message, 'error');
+      }
+    });
+  }
+
+  renderCollection() {
+    const container = document.getElementById('tab-collection');
+    if (!container) return;
+    
+    const stats = game.data.cropStats || {};
+    const unlocked = game.data.unlockedCrops || [];
+    const plantableTypes = Object.keys(CROP_TYPES).filter(t => !CROP_TYPES[t].animalProduct);
+    const animalProducts = Object.keys(CROP_TYPES).filter(t => CROP_TYPES[t].animalProduct);
+    
+    const renderCollectionItem = (type, crop, isAnimal) => {
+      const isUnlocked = unlocked.includes(type);
+      const s = stats[type] || { harvested: 0, sold: 0 };
+      const known = isUnlocked || s.harvested > 0 || s.sold > 0;
+      
+      let detail;
+      if (!known) {
+        detail = '<div class="collection-detail">尚未发现</div>';
+      } else if (isAnimal) {
+        detail = `<div class="collection-detail">鸡舍产出</div>
+          <div class="collection-stats">累计出售 ${s.sold} 个</div>`;
+      } else {
+        detail = `
+          <div class="collection-detail">
+            生长${crop.daysToHarvest}天${crop.regrowDays ? ` | 再生${crop.regrowDays}天` : ''} | 售价${crop.harvestValue} | 种子${crop.seedCost}
+          </div>
+          <div class="collection-stats">
+            累计收获 ${s.harvested} 次 | 累计出售 ${s.sold} 个
+          </div>`;
+      }
+      
+      return `
+        <div class="collection-item ${known ? '' : 'unknown'}">
+          <div class="collection-icon">
+            ${known ? `<span class="inline-icon"><span class="crop-icon crop-mature crop-${type}"></span></span>` : '<span class="collection-mystery">？</span>'}
+          </div>
+          <div class="collection-info">
+            <div class="collection-name">
+              ${known ? crop.name : '？？？'}
+              ${isUnlocked || isAnimal ? '' : '<span class="collection-lock">🔒</span>'}
+              ${crop.regrowDays ? '<span class="collection-tag">复种</span>' : ''}
+              ${isAnimal ? '<span class="collection-tag">养殖</span>' : ''}
+            </div>
+            ${detail}
+          </div>
+        </div>
+      `;
+    };
+    
+    const cropItems = plantableTypes.map(type => renderCollectionItem(type, CROP_TYPES[type], false)).join('');
+    const animalItems = animalProducts.map(type => renderCollectionItem(type, CROP_TYPES[type], true)).join('');
+    
+    const buildingItems = Object.entries(BUILDING_TYPES).map(([type, building]) => {
+      const owned = game.data.farm.buildings.filter(b => b.type === type);
+      const known = owned.length > 0;
+      const maxLevel = CONFIG.MAX_BUILDING_LEVEL || 3;
+      const topLevel = owned.reduce((m, b) => Math.max(m, b.level), 0);
+      
+      return `
+        <div class="collection-item ${known ? '' : 'unknown'}">
+          <div class="collection-icon">
+            ${known ? `<span class="inline-icon"><span class="building-icon ${this.getBuildingIconClass(type)}"></span></span>` : '<span class="collection-mystery">？</span>'}
+          </div>
+          <div class="collection-info">
+            <div class="collection-name">
+              ${known ? building.name : '？？？'}
+              ${topLevel >= maxLevel ? '<span class="collection-tag">满级</span>' : ''}
+            </div>
+            ${known ? `
+              <div class="collection-detail">${building.description}</div>
+              <div class="collection-stats">已建造 ${owned.length} 座${topLevel > 0 ? ` | 最高 Lv${topLevel}` : ''}</div>
+            ` : '<div class="collection-detail">尚未建造</div>'}
+          </div>
+        </div>
+      `;
+    }).join('');
+    
+    const totalHarvests = Object.values(stats).reduce((sum, s) => sum + (s.harvested || 0), 0);
+    const totalSold = Object.values(stats).reduce((sum, s) => sum + (s.sold || 0), 0);
+    const unlockedPlantable = plantableTypes.filter(t => unlocked.includes(t)).length;
+    
+    container.innerHTML = `
+      <div class="content-section">
+        <h3 class="content-section-title">📖 图鉴总览</h3>
+        <div class="collection-summary">累计收获 ${totalHarvests} 次作物 | 累计出售 ${totalSold} 个 | 已解锁作物 ${unlockedPlantable}/${plantableTypes.length}</div>
+      </div>
+      <div class="content-section">
+        <h3 class="content-section-title">作物图鉴</h3>
+        <div class="collection-grid">
+          ${cropItems}
+        </div>
+      </div>
+      <div class="content-section">
+        <h3 class="content-section-title">养殖产物</h3>
+        <div class="collection-grid">
+          ${animalItems}
+        </div>
+      </div>
+      <div class="content-section">
+        <h3 class="content-section-title">建筑图鉴</h3>
+        <div class="collection-grid">
+          ${buildingItems}
+        </div>
+      </div>
+    `;
   }
 
   renderLetters() {
@@ -289,17 +492,22 @@ class UIManager {
       .filter(l => l.isTriggered)
       .sort((a, b) => b.triggerDay - a.triggerDay);
     
+    const merchantHtml = this.renderMerchantSection();
+    
     if (letters.length === 0) {
       container.innerHTML = `
+        ${merchantHtml}
         <div class="empty-state">
           <div class="empty-state-icon">📬</div>
           <div class="empty-state-text">暂无信件</div>
         </div>
       `;
+      this.bindMerchantEvents(container);
       return;
     }
     
     container.innerHTML = `
+      ${merchantHtml}
       <div class="content-section">
         <h3 class="content-section-title">信件</h3>
         <div class="card-list">
@@ -312,6 +520,69 @@ class UIManager {
       card.addEventListener('click', () => {
         const letterId = card.dataset.letterId;
         this.showLetterDetail(letterId);
+      });
+    });
+    
+    this.bindMerchantEvents(container);
+  }
+
+  renderMerchantSection() {
+    const orders = game.getActiveMerchantOrders();
+    
+    if (orders.length === 0) {
+      return `
+        <div class="content-section">
+          <h3 class="content-section-title">🤝 合作商人</h3>
+          <div class="merchant-empty">商人正在各地奔波，有收购需求时会在这里出现（高价收购，限时完成）</div>
+        </div>
+      `;
+    }
+    
+    return `
+      <div class="content-section">
+        <h3 class="content-section-title">🤝 合作商人</h3>
+        <div class="card-list">
+          ${orders.map(order => this.renderMerchantOrder(order)).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  renderMerchantOrder(order) {
+    const cropType = CROP_TYPES[order.type] || {};
+    const stock = game.getWarehouseCount(order.type);
+    const enough = stock >= order.count;
+    const daysLeft = order.expireDay - game.data.day;
+    
+    return `
+      <div class="merchant-card ${enough ? '' : 'insufficient'}">
+        <div class="merchant-main">
+          <span class="inline-icon"><span class="crop-icon crop-mature crop-${order.type}"></span></span>
+          <div class="merchant-info">
+            <div class="merchant-title">高价收购 ${cropType.name || order.type} × ${order.count}</div>
+            <div class="merchant-detail">单价 ${order.unitPrice} 金币（市价 ${game.getSellPrice(order.type)}）| 总价 ${order.unitPrice * order.count} 金币</div>
+            <div class="merchant-stock ${enough ? '' : 'lack'}">仓库存量：${stock}/${order.count} | 剩余 ${daysLeft} 天</div>
+          </div>
+        </div>
+        <button class="btn btn-action btn-merchant-sell" data-order-id="${order.id}" ${enough ? '' : 'disabled'}>
+          ${enough ? '出售' : '存货不足'}
+        </button>
+      </div>
+    `;
+  }
+
+  bindMerchantEvents(container) {
+    container.querySelectorAll('.btn-merchant-sell').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const orderId = btn.dataset.orderId;
+        const result = game.sellToMerchant(orderId);
+        if (result.success) {
+          this.showToast(`向商人出售${result.cropName}×${result.count}，获得${result.gold}金币`);
+          this.render();
+        } else {
+          this.showToast(result.message, 'error');
+        }
       });
     });
   }
@@ -538,10 +809,57 @@ class UIManager {
     }
   }
 
+  getBuildingStatText(building) {
+    switch (building.type) {
+      case 'field': {
+        const capacities = BUILDING_TYPES.field.capacityPerLevel || [2, 3, 4];
+        return `当前种植位：${capacities[building.level - 1] || 2} 个作物`;
+      }
+      case 'barn': {
+        const bonuses = BUILDING_TYPES.barn.incomeBonusPerLevel || [];
+        return `当前加成：售价 +${Math.round((bonuses[building.level - 1] || 0) * 100)}%`;
+      }
+      case 'chickenCoop': {
+        const chickens = game.getChickenCount();
+        const capacity = game.getCoopCapacity();
+        return `当前母鸡：${chickens}/${capacity} 只`;
+      }
+      case 'well': {
+        const bonuses = BUILDING_TYPES.well.speedBonusPerLevel || [];
+        return `当前加速：成熟时间 -${Math.round((bonuses[building.level - 1] || 0) * 100)}%`;
+      }
+      default:
+        return '';
+    }
+  }
+
+  getUpgradePreview(building) {
+    const next = building.level + 1;
+    switch (building.type) {
+      case 'field': {
+        const capacities = BUILDING_TYPES.field.capacityPerLevel || [2, 3, 4];
+        return `种植位 ${capacities[building.level - 1] || 2} → ${capacities[next - 1] || 3}`;
+      }
+      case 'barn': {
+        const bonuses = BUILDING_TYPES.barn.incomeBonusPerLevel || [];
+        return `+${Math.round((bonuses[building.level - 1] || 0) * 100)}% → +${Math.round((bonuses[next - 1] || 0) * 100)}%`;
+      }
+      case 'chickenCoop':
+        return '';
+      case 'well': {
+        const bonuses = BUILDING_TYPES.well.speedBonusPerLevel || [];
+        return `-${Math.round((bonuses[building.level - 1] || 0) * 100)}% → -${Math.round((bonuses[next - 1] || 0) * 100)}%`;
+      }
+      default:
+        return '';
+    }
+  }
+
   renderBuildingCard(building) {
     const buildingType = BUILDING_TYPES[building.type] || {};
     const iconClass = this.getBuildingIconClass(building.type);
     const maxLevel = CONFIG.MAX_BUILDING_LEVEL || 3;
+    const statText = this.getBuildingStatText(building);
     
     return `
       <div class="building-card">
@@ -551,6 +869,7 @@ class UIManager {
           <span class="building-level">Lv${building.level}${building.level >= maxLevel ? '（满级）' : ''}</span>
         </div>
         <div class="building-desc">${buildingType.description || ''}</div>
+        ${statText ? `<div class="building-stat">${statText}</div>` : ''}
       </div>
     `;
   }
@@ -565,6 +884,134 @@ class UIManager {
         </ul>
       </div>
     `;
+  }
+
+  renderWarehouse() {
+    const container = document.getElementById('tab-warehouse');
+    if (!container) return;
+    
+    const warehouse = game.data.warehouse || [];
+    const totalValue = warehouse.reduce((sum, w) => sum + game.getSellPrice(w.type) * w.count, 0);
+    
+    let listHtml;
+    if (warehouse.length === 0) {
+      listHtml = `
+        <div class="empty-state">
+          <div class="empty-state-icon">📦</div>
+          <div class="empty-state-text">仓库空空如也，去收获一些作物吧</div>
+        </div>
+      `;
+    } else {
+      listHtml = `
+        <div class="card-list">
+          ${warehouse.map(w => this.renderWarehouseItem(w)).join('')}
+        </div>
+      `;
+    }
+    
+    container.innerHTML = `
+      <div class="content-section">
+        <h3 class="content-section-title">仓库存货${warehouse.length > 0 ? `（总价值约 ${totalValue} 金币）` : ''}</h3>
+        ${listHtml}
+      </div>
+    `;
+    
+    container.querySelectorAll('.btn-sell').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.showSellModal(btn.dataset.cropType);
+      });
+    });
+  }
+
+  renderWarehouseItem(item) {
+    const cropType = CROP_TYPES[item.type] || {};
+    const unitPrice = game.getSellPrice(item.type);
+    
+    return `
+      <div class="warehouse-item">
+        <span class="inline-icon"><span class="crop-icon crop-mature crop-${item.type}"></span></span>
+        <div class="warehouse-info">
+          <span class="warehouse-name">${cropType.name || item.type} × ${item.count}</span>
+          <span class="warehouse-price">单价 ${unitPrice} 金币 | 合计 ${unitPrice * item.count} 金币</span>
+        </div>
+        <button class="btn btn-action btn-sell" data-crop-type="${item.type}">出售</button>
+      </div>
+    `;
+  }
+
+  showSellModal(type) {
+    const cropType = CROP_TYPES[type];
+    if (!cropType) return;
+    
+    const count = game.getWarehouseCount(type);
+    if (count < 1) {
+      this.showToast('仓库中没有该作物', 'error');
+      return;
+    }
+    
+    const unitPrice = game.getSellPrice(type);
+    
+    this.showModal(`出售 ${cropType.name}`, `
+      <div class="sell-panel">
+        <p class="sell-info">仓库存量：<strong>${count}</strong> 个 | 当前单价：<strong>${unitPrice} 金币</strong></p>
+        <div class="sell-row">
+          <button class="btn btn-action" id="sell-minus">−</button>
+          <input type="number" id="sell-count" value="1" min="1" max="${count}">
+          <button class="btn btn-action" id="sell-plus">＋</button>
+          <button class="btn btn-action" id="sell-max">全部</button>
+        </div>
+        <div class="sell-preview" id="sell-preview"></div>
+      </div>
+    `, `
+      <button class="btn btn-cancel" id="sell-cancel">取消</button>
+      <button class="btn btn-primary" id="sell-confirm">确认出售</button>
+    `);
+    
+    const input = document.getElementById('sell-count');
+    const preview = document.getElementById('sell-preview');
+    
+    const updatePreview = () => {
+      let n = parseInt(input.value);
+      if (isNaN(n) || n < 1) n = 1;
+      if (n > count) n = count;
+      input.value = n;
+      preview.textContent = `出售 ${n} 个 × ${unitPrice} 金币 = ${n * unitPrice} 金币`;
+    };
+    
+    input.addEventListener('input', updatePreview);
+    document.getElementById('sell-minus')?.addEventListener('click', () => {
+      input.value = Math.max(1, (parseInt(input.value) || 1) - 1);
+      updatePreview();
+    });
+    document.getElementById('sell-plus')?.addEventListener('click', () => {
+      input.value = Math.min(count, (parseInt(input.value) || 1) + 1);
+      updatePreview();
+    });
+    document.getElementById('sell-max')?.addEventListener('click', () => {
+      input.value = count;
+      updatePreview();
+    });
+    document.getElementById('sell-cancel')?.addEventListener('click', () => {
+      this.hideModal();
+    });
+    document.getElementById('sell-confirm')?.addEventListener('click', () => {
+      const n = parseInt(input.value);
+      if (isNaN(n) || n < 1 || n > count) {
+        this.showToast('请输入有效的出售数量', 'error');
+        return;
+      }
+      const result = game.sellCrops(type, n);
+      if (result.success) {
+        this.hideModal();
+        this.showToast(`出售${result.cropName}×${result.count}，获得${result.gold}金币`);
+        this.render();
+      } else {
+        this.showToast(result.message, 'error');
+      }
+    });
+    
+    updatePreview();
   }
 
   renderPlans() {
@@ -695,17 +1142,38 @@ class UIManager {
   }
 
   renderPlantActions() {
-    return Object.entries(CROP_TYPES).map(([type, crop]) => `
-      <div class="action-item">
-        <div class="action-info">
-          <span class="action-name">${crop.name}</span>
-          <span class="action-detail">${crop.daysToHarvest}天 | ${crop.seedCost}金币</span>
+    return Object.entries(CROP_TYPES)
+      .filter(([type, crop]) => !crop.animalProduct)
+      .map(([type, crop]) => {
+      const unlocked = game.isCropUnlocked(type);
+      const regrowText = crop.regrowDays ? ` | 收获后再生${crop.regrowDays}天` : '';
+      
+      if (!unlocked) {
+        return `
+          <div class="action-item locked-crop">
+            <div class="action-info">
+              <span class="action-name">${crop.name} 🔒</span>
+              <span class="action-detail">${crop.daysToHarvest}天 | 解锁费 ${crop.unlockCost}金币${regrowText}</span>
+            </div>
+            <button class="btn btn-action btn-unlock-crop" data-crop-type="${type}" data-cost="${crop.unlockCost}">
+              解锁
+            </button>
+          </div>
+        `;
+      }
+      
+      return `
+        <div class="action-item">
+          <div class="action-info">
+            <span class="action-name">${crop.name}</span>
+            <span class="action-detail">${crop.daysToHarvest}天 | ${crop.seedCost}金币${regrowText}</span>
+          </div>
+          <button class="btn btn-action btn-plant" data-crop-type="${type}" data-cost="${crop.seedCost}">
+            种植
+          </button>
         </div>
-        <button class="btn btn-action btn-plant" data-crop-type="${type}" data-cost="${crop.seedCost}">
-          种植
-        </button>
-      </div>
-    `).join('');
+      `;
+    }).join('');
   }
 
   renderBuildActions() {
@@ -736,7 +1204,7 @@ class UIManager {
 
   renderUpgradeActions() {
     const maxLevel = CONFIG.MAX_BUILDING_LEVEL || 3;
-    const built = game.data.farm.buildings.filter(b => b.status === 'built');
+    const built = game.data.farm.buildings.filter(b => b.status === 'built' && b.type !== 'chickenCoop');
     
     if (built.length === 0) {
       return `
@@ -764,7 +1232,8 @@ class UIManager {
         const upgradeCost = Math.floor(building.level * 50);
         const upgradeDays = building.level + 2;
         nameText += ` Lv${building.level} → Lv${building.level + 1}`;
-        detailText = `${upgradeDays}天 | ${upgradeCost}金币`;
+        const preview = this.getUpgradePreview(building);
+        detailText = `${upgradeDays}天 | ${upgradeCost}金币${preview ? ' | ' + preview : ''}`;
         btnHtml = `<button class="btn btn-action btn-upgrade" data-building-id="${building.id}" data-cost="${upgradeCost}">升级</button>`;
       }
       
@@ -786,6 +1255,14 @@ class UIManager {
         const cropType = btn.dataset.cropType;
         const cost = parseInt(btn.dataset.cost);
         this.handlePlant(cropType, cost);
+      });
+    });
+
+    document.querySelectorAll('.btn-unlock-crop').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const cropType = btn.dataset.cropType;
+        const cost = parseInt(btn.dataset.cost);
+        this.handleUnlockCrop(cropType, cost);
       });
     });
     
@@ -818,6 +1295,25 @@ class UIManager {
       this.showToast('已取消待种植作物');
       this.render();
     }
+  }
+
+  handleUnlockCrop(cropType, cost) {
+    const crop = CROP_TYPES[cropType];
+    if (!crop) return;
+    
+    this.showConfirm(
+      '解锁作物',
+      `确定要花 ${cost} 金币解锁「${crop.name}」吗？\n解锁后可永久种植${crop.regrowDays ? `，收获后每${crop.regrowDays}天重新结果` : ''}。`,
+      () => {
+        const result = game.unlockCrop(cropType);
+        if (result.success) {
+          this.showToast(`已解锁「${result.cropName}」`);
+          this.render();
+        } else {
+          this.showToast(result.message, 'error');
+        }
+      }
+    );
   }
 
   handlePlant(cropType, cost) {
@@ -937,7 +1433,7 @@ class UIManager {
   handleHarvest(cropId) {
     const result = game.harvestCrop(cropId);
     if (result) {
-      this.showToast(`收获了${result.cropName}，获得${result.goldEarned}金币`);
+      this.showToast(`收获了${result.cropName}，已存入仓库`);
       this.render();
     }
   }
@@ -1001,7 +1497,9 @@ class UIManager {
       case 'crop_ready':
         return `${logItem.data.cropName}已成熟`;
       case 'harvest':
-        return `收获${logItem.data.cropName}，+${logItem.data.gold}金币`;
+        return `收获${logItem.data.cropName}，存入仓库`;
+      case 'sell':
+        return `出售${logItem.data.cropName}×${logItem.data.count}，+${logItem.data.gold}金币`;
       case 'event':
         return `${logItem.data.eventName}`;
       case 'letter':
@@ -1010,6 +1508,10 @@ class UIManager {
         return `鸡舍产出，+${logItem.data.gold}金币`;
       case 'season_change':
         return `季节变换，进入了${logItem.data.seasonName}季`;
+      case 'egg_collect':
+        return `母鸡产下了${logItem.data.eggs}个鸡蛋和${logItem.data.largeEggs}个大鸡蛋`;
+      case 'chicken_buy':
+        return `购买了一只母鸡，-${logItem.data.cost}金币`;
       default:
         return '';
     }

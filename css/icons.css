@@ -211,6 +211,108 @@
   border-radius: 40%;
 }
 
+.crop-cabbage::before {
+  background: #a8c66c;
+  width: 24px;
+  height: 22px;
+  top: -20px;
+}
+
+.crop-pumpkin::before {
+  background: #e8862a;
+  width: 26px;
+  height: 20px;
+  border-radius: 45%;
+  top: -18px;
+}
+
+.crop-strawberry::before {
+  background: #e63950;
+  width: 16px;
+  height: 16px;
+  border-radius: 45% 45% 50% 50%;
+  top: -14px;
+}
+
+.crop-blueberry::before {
+  background: #4a6a9a;
+  width: 13px;
+  height: 13px;
+  top: -11px;
+}
+
+.crop-pepper::before {
+  background: #d43a2f;
+  width: 12px;
+  height: 22px;
+  border-radius: 40% 40% 50% 50%;
+  top: -20px;
+}
+
+/* 蛋类图标（无茎） */
+.crop-egg {
+  background: transparent;
+  width: 24px;
+  height: 26px;
+}
+
+.crop-egg::before {
+  width: 16px;
+  height: 20px;
+  background: #fffaf0;
+  border: 2px solid #d8c8a8;
+  border-radius: 50% 50% 50% 50% / 58% 58% 42% 42%;
+  top: 2px;
+}
+
+.crop-largeEgg {
+  background: transparent;
+  width: 28px;
+  height: 30px;
+}
+
+.crop-largeEgg::before {
+  width: 20px;
+  height: 25px;
+  background: #fff3c4;
+  border: 2px solid #d4b96a;
+  border-radius: 50% 50% 50% 50% / 58% 58% 42% 42%;
+  top: 1px;
+}
+
+/* 小鸡图标 */
+.icon-chick {
+  width: 32px;
+  height: 32px;
+  position: relative;
+  display: inline-block;
+}
+
+.icon-chick::before {
+  content: '';
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 8px 9px, #4a3a2a 1.8px, transparent 2.4px),
+    #ffd54f;
+}
+
+.icon-chick::after {
+  content: '';
+  position: absolute;
+  width: 7px;
+  height: 6px;
+  background: #ff8f00;
+  border-radius: 0 0 60% 60%;
+  top: 7px;
+  left: 58%;
+}
+
 /* 建筑图标 */
 .building-icon {
   width: 40px;

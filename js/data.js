@@ -21,6 +21,18 @@ const CONFIG = {
   SPECIAL_EVENT_CHANCE: 0.1,
   MAX_BUILDING_LEVEL: 3,
   SEASON_DAYS: 30,
+  PERFECT_SEASON_INCOME: 2500,
+  
+  MERCHANT_ORDER_CHANCE: 0.25,
+  MERCHANT_ORDER_DAYS: 5,
+  MERCHANT_MAX_ACTIVE: 2,
+  MERCHANT_PREMIUM_MIN: 1.4,
+  MERCHANT_PREMIUM_MAX: 1.7,
+  
+  EGG_LAY_CHANCE: 0.6,
+  LARGE_EGG_CHANCE: 0.1,
+  CHICKEN_PRICE: 50,
+  COOP_CAPACITY_PER: 5,
   
   DEBUG_MODE: true
 };
@@ -85,6 +97,54 @@ const CROP_TYPES = {
     daysToHarvest: 6,
     harvestValue: 60,
     seedCost: 25
+  },
+  cabbage: {
+    name: '卷心菜',
+    daysToHarvest: 5,
+    harvestValue: 45,
+    seedCost: 20
+  },
+  pumpkin: {
+    name: '南瓜',
+    daysToHarvest: 7,
+    harvestValue: 90,
+    seedCost: 45
+  },
+  strawberry: {
+    name: '草莓',
+    daysToHarvest: 4,
+    harvestValue: 20,
+    seedCost: 40,
+    regrowDays: 2,
+    unlockCost: 150
+  },
+  blueberry: {
+    name: '蓝莓',
+    daysToHarvest: 5,
+    harvestValue: 30,
+    seedCost: 60,
+    regrowDays: 2,
+    unlockCost: 350
+  },
+  pepper: {
+    name: '辣椒',
+    daysToHarvest: 5,
+    harvestValue: 25,
+    seedCost: 50,
+    regrowDays: 2,
+    unlockCost: 250
+  },
+  egg: {
+    name: '鸡蛋',
+    harvestValue: 15,
+    seedCost: 0,
+    animalProduct: true
+  },
+  largeEgg: {
+    name: '大鸡蛋',
+    harvestValue: 22,
+    seedCost: 0,
+    animalProduct: true
   }
 };
 
@@ -93,27 +153,31 @@ const BUILDING_TYPES = {
     name: '田地',
     baseCost: 50,
     baseBuildDays: 3,
-    description: '增加一块可用田地，每块田地可种植2个作物。扩建田地是扩大农场规模的基础。'
+    description: '增加一块可用田地。每升1级增加1个种植位（Lv1：2个/Lv2：3个/Lv3：4个作物）。',
+    capacityPerLevel: [2, 3, 4]
   },
   barn: {
     name: '谷仓',
     baseCost: 100,
     baseBuildDays: 4,
-    description: '存储和加工农产品，建成后所有作物收获收益永久提升10%。性价比最高的长期投资。'
+    maxCount: 3,
+    description: '提升作物售价，可建造多座叠加。每座加成：Lv1 +8% / Lv2 +16% / Lv3 +20%。',
+    incomeBonusPerLevel: [0.08, 0.16, 0.20]
   },
   chickenCoop: {
     name: '鸡舍',
     baseCost: 80,
     baseBuildDays: 5,
-    description: '饲养家禽的场所，每天产出金币（Lv1：15/Lv2：20/Lv3：25），稳定的被动收入来源。',
-    dailyIncome: [15, 20, 25]
+    description: '饲养家禽的场所，可容纳5只母鸡。母鸡每天有几率产蛋，大鸡蛋更值钱。请在「养殖」页购买母鸡。',
+    capacityPer: 5
   },
   well: {
     name: '水井',
     baseCost: 60,
     baseBuildDays: 3,
     maxCount: 2,
-    description: '提供灌溉水源，每座使作物成熟速度提升10%（最多建造2座）。'
+    description: '缩短作物成熟时间，最多建造2座，效果可叠加。每座加速：Lv1 5% / Lv2 10% / Lv3 15%。',
+    speedBonusPerLevel: [0.05, 0.10, 0.15]
   }
 };
 
@@ -149,7 +213,7 @@ const INITIAL_LETTERS = [
     id: 'letter_3',
     from: '🏡 农场协会',
     title: '收获与建筑',
-    content: '你的胡萝卜应该快成熟了！\n\n当作物状态显示"可收获"时，点击"收获"按钮就能获得金币。\n\n在"📋 计划项目"中可以建造建筑（每种最高3级）：\n• 田地（50金币）- 增加一块田地，每块可种2个作物\n• 谷仓（100金币）- 收获收益永久+10%\n• 鸡舍（80金币）- 每天产出金币，升级提高产量\n• 水井（60金币）- 每座成熟速度+10%，最多建2座',
+    content: '你的胡萝卜应该快成熟了！\n\n当作物状态显示"可收获"时，点击"收获"按钮就能获得金币。\n\n在"📋 计划项目"中可以建造建筑（每种最高3级）：\n• 田地（50金币）- 增加一块田地，升级可增加种植位\n• 谷仓（100金币）- 提升售价，可建3座叠加\n• 鸡舍（80金币）- 购买母鸡产蛋出售\n• 水井（60金币）- 缩短成熟时间，最多2座叠加',
     isRead: false,
     triggerDay: 5,
     hasReply: false,
@@ -209,7 +273,7 @@ const SPECIAL_EVENTS = [
   {
     id: 'lucky_find',
     name: '幸运发现！',
-    description: '在田地里发现了15金币',
+    description: '在田地里发现了30金币',
     type: 'positive',
     goldGain: 15
   },
@@ -219,13 +283,6 @@ const SPECIAL_EVENTS = [
     description: '部分作物生长延迟1天',
     type: 'negative',
     delayGrowth: 1
-  },
-  {
-    id: 'traveling_merchant',
-    name: '旅行商人！',
-    description: '获得了免费种子',
-    type: 'positive',
-    freeSeed: true
   }
 ];
 

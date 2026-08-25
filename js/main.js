@@ -98,7 +98,7 @@
   function handleHarvest(cropId) {
     const result = game.harvestCrop(cropId);
     if (result) {
-      ui.showToast(`收获了${result.cropName}，获得${result.goldEarned}金币`);
+      ui.showToast(`收获了${result.cropName}，已存入仓库`);
       ui.render();
     }
   }
