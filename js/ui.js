@@ -1429,6 +1429,12 @@ class UIManager {
       return;
     }
     
+    const gold = game.data.gold || 0;
+    if (gold < cost) {
+      this.showToast('金币不足', 'error');
+      return;
+    }
+    
     const upgradeDays = building.level + 2;
     
     if (this.onAddPlan) {

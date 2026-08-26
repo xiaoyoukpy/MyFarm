@@ -96,6 +96,9 @@ class Game {
       if (typeof this.data.gold !== 'number' || isNaN(this.data.gold)) {
         this.data.gold = CONFIG.INITIAL_GOLD;
       }
+      if (this.data.gold < 0) {
+        this.data.gold = 0;
+      }
       if (!this.data.maxPlans) {
         this.data.maxPlans = CONFIG.INITIAL_MAX_PLANS;
       }
@@ -1018,7 +1021,7 @@ class Game {
     }
     
     const gold = this.data.gold || 0;
-    if (planData.type === 'build' && gold < (planData.cost || 0)) {
+    if (gold < (planData.cost || 0)) {
       return { success: false, message: '金币不足' };
     }
     

@@ -168,7 +168,7 @@ const BUILDING_TYPES = {
     name: '鸡舍',
     baseCost: 80,
     baseBuildDays: 5,
-    description: '饲养家禽的场所，可容纳5只母鸡。母鸡每天有几率产蛋，大鸡蛋更值钱。请在「养殖」页购买母鸡。',
+    description: '饲养家禽的场所，可容纳5只母鸡。母鸡每天有几率产蛋，大鸡蛋更值钱。请在「鸡舍」页购买母鸡。',
     capacityPer: 5
   },
   well: {
