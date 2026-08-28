@@ -40,6 +40,8 @@ class Game {
       merchantOrders: [],
       cropStats: {},
       coop: { chickens: 0 },
+      shop: { mysteryBought: 0, mysteryMonth: 0 },
+      obtained: { lottery: false, trophy: false },
       dailyLogs: []
     };
     this.pendingCrops = [];
@@ -119,6 +121,12 @@ class Game {
       }
       if (typeof this.data.coop.chickens !== 'number' || isNaN(this.data.coop.chickens)) {
         this.data.coop.chickens = 0;
+      }
+      if (typeof this.data.shop !== 'object' || this.data.shop === null) {
+        this.data.shop = { mysteryBought: 0, mysteryMonth: 0 };
+      }
+      if (typeof this.data.obtained !== 'object' || this.data.obtained === null) {
+        this.data.obtained = { lottery: false, trophy: false };
       }
       this.migrateInitialFields();
       this.triggerDayLetters();
@@ -294,6 +302,8 @@ class Game {
     if (onProgress) onProgress('cropsGrown');
     await this.delay(100);
 
+    this.autoHarvest();
+
     this.generateWeather();
     if (onProgress) onProgress('weatherGenerated');
     await this.delay(100);
@@ -342,6 +352,7 @@ class Game {
       this.executePlans();
       this.collectEggs();
       this.growCrops();
+      this.autoHarvest();
       this.generateWeather();
       this.triggerSpecialEvents();
       this.triggerLetters();
@@ -365,6 +376,7 @@ class Game {
 
   processSeasonEvents() {
     if (this.data.day > 1 && this.getSeasonDay() === 1) {
+      this.witherRegrowCrops();
       this.addLog('season_change', {
         seasonName: this.getSeasonInfo().name
       });
@@ -374,6 +386,20 @@ class Game {
 
     if (this.data.day % CONFIG.SEASON_DAYS === 0) {
       this.generateSeasonReportLetter();
+    }
+  }
+
+  witherRegrowCrops() {
+    let withered = 0;
+    this.data.farm.crops.forEach(crop => {
+      const cropType = CROP_TYPES[crop.type];
+      if (cropType && cropType.regrowDays && crop.status !== 'withered') {
+        crop.status = 'withered';
+        withered += 1;
+      }
+    });
+    if (withered > 0) {
+      this.addLog('crop_withered', { count: withered });
     }
   }
 
@@ -460,12 +486,15 @@ class Game {
     const season = this.getSeasonInfo();
 
     cropsToPlant.forEach(pendingCrop => {
+      const effectiveDays = pendingCrop.type === 'mysterySeed'
+        ? (CONFIG.MYSTERY_SEED_GROWTH_DAYS || 5)
+        : Math.max(1, Math.ceil(pendingCrop.daysToHarvest * season.growthMultiplier));
       const crop = {
         id: 'crop_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
         name: pendingCrop.name,
         type: pendingCrop.type,
         plantDate: this.data.day,
-        daysToHarvest: Math.max(1, Math.round(pendingCrop.daysToHarvest * season.growthMultiplier)),
+        daysToHarvest: effectiveDays,
         status: 'growing'
       };
       this.data.farm.crops.push(crop);
@@ -621,23 +650,63 @@ class Game {
     });
   }
 
+  autoHarvest() {
+    const hasHarvester = this.data.farm.buildings.some(b => b.type === 'harvester' && b.status === 'built');
+    if (!hasHarvester) return;
+
+    const harvestable = this.data.farm.crops.filter(c => c.status === 'harvestable');
+    harvestable.forEach(crop => {
+      this.harvestCrop(crop.id);
+    });
+  }
+
   generateWeather() {
+    const season = this.getSeason();
+    const isWinter = season === 'winter';
+    const base = CONFIG.WEATHER_PROBABILITIES;
+
+    const weathers = isWinter
+      ? Object.entries(base)
+      : Object.entries(base).filter(([weather]) => weather !== 'snowy');
+    const total = weathers.reduce((sum, [, prob]) => sum + prob, 0);
+
     const rand = Math.random();
     let cumulative = 0;
-    
-    for (const [weather, prob] of Object.entries(CONFIG.WEATHER_PROBABILITIES)) {
-      cumulative += prob;
+    this.currentWeather = weathers[weathers.length - 1][0];
+
+    for (const [weather, prob] of weathers) {
+      cumulative += prob / total;
       if (rand <= cumulative) {
         this.currentWeather = weather;
         break;
       }
     }
-    
+
+    if (this.currentWeather === 'snowy') {
+      this.applySnowEffect();
+    }
+  }
+
+  applySnowEffect() {
     this.data.farm.crops.forEach(crop => {
-      if (crop.status === 'growing' && this.currentWeather === 'snowy') {
+      if (crop.status === 'growing') {
         crop.daysToHarvest += 1;
       }
     });
+
+    const freezeChance = CONFIG.SNOW_FREEZE_CHANCE || 0.3;
+    if (Math.random() < freezeChance) {
+      const crops = this.data.farm.crops;
+      if (crops.length > 0) {
+        const victim = crops[Math.floor(Math.random() * crops.length)];
+        this.data.farm.crops = crops.filter(c => c.id !== victim.id);
+        this.addLog('crop_frozen', { cropName: victim.name });
+      } else {
+        this.addLog('snow_safe', {});
+      }
+    } else {
+      this.addLog('snow_safe', {});
+    }
   }
 
   triggerSpecialEvents() {
@@ -647,6 +716,7 @@ class Game {
     this.todayEvents.push(event);
     
     const gold = this.data.gold || 0;
+    let goldLost = 0;
     switch (event.type) {
       case 'positive':
         if (event.goldGain) {
@@ -659,6 +729,13 @@ class Game {
       case 'negative':
         if (event.goldLoss) {
           this.data.gold = Math.max(0, (this.data.gold || 0) - event.goldLoss);
+          goldLost = event.goldLoss;
+        }
+        if (event.goldLossPercent) {
+          const cur = this.data.gold || 0;
+          const lost = Math.floor(cur * event.goldLossPercent);
+          this.data.gold = Math.max(0, cur - lost);
+          goldLost = lost;
         }
         if (event.delayGrowth) {
           this.data.farm.crops.forEach(crop => {
@@ -673,7 +750,8 @@ class Game {
     this.addLog('event', {
       eventName: event.name,
       eventDesc: event.description,
-      eventType: event.type
+      eventType: event.type,
+      goldLost: goldLost
     });
   }
 
@@ -717,26 +795,57 @@ class Game {
     }
   }
 
+  demolishBuilding(buildingId) {
+    const index = this.data.farm.buildings.findIndex(b => b.id === buildingId);
+    if (index === -1) {
+      return { success: false, message: '建筑不存在' };
+    }
+    const building = this.data.farm.buildings[index];
+    this.data.farm.buildings.splice(index, 1);
+    if (building.type === 'field') {
+      this.data.farm.landCount = Math.max(0, (this.data.farm.landCount || 0) - 1);
+    }
+    this.addLog('building_demolish', { buildingName: building.name });
+    this.save();
+    return { success: true, name: building.name };
+  }
+
+  removeCrop(cropId) {
+    const index = this.data.farm.crops.findIndex(c => c.id === cropId);
+    if (index === -1) {
+      return { success: false, message: '作物不存在' };
+    }
+    const crop = this.data.farm.crops[index];
+    this.data.farm.crops.splice(index, 1);
+    this.addLog('crop_cleared', { cropName: crop.name });
+    this.save();
+    return { success: true, name: crop.name };
+  }
+
   harvestCrop(cropId) {
     const cropIndex = this.data.farm.crops.findIndex(c => c.id === cropId);
     if (cropIndex === -1) return null;
-    
+
     const crop = this.data.farm.crops[cropIndex];
     if (crop.status !== 'harvestable') return null;
-    
+
+    if (crop.type === 'mysterySeed') {
+      return this.resolveMysterySeed(crop, cropIndex);
+    }
+
     const cropType = CROP_TYPES[crop.type];
-    
+
     this.trackCropStat(crop.type, 'harvested');
-    
+
     if (cropType && cropType.regrowDays) {
       crop.harvestCount = (crop.harvestCount || 0) + 1;
       crop.status = 'growing';
       crop.plantDate = this.data.day;
-      crop.daysToHarvest = Math.max(1, Math.round(cropType.regrowDays * this.getSeasonInfo().growthMultiplier));
+      crop.daysToHarvest = Math.max(1, cropType.regrowDays);
     } else {
       this.data.farm.crops.splice(cropIndex, 1);
     }
-    
+
     if (!Array.isArray(this.data.warehouse)) {
       this.data.warehouse = [];
     }
@@ -746,17 +855,52 @@ class Game {
     } else {
       this.data.warehouse.push({ type: crop.type, count: 1 });
     }
-    
+
     this.addLog('harvest', {
       cropName: crop.name,
       cropId: crop.id
     });
-    
+
     this.save();
-    
+
     return {
       cropName: crop.name,
       regrew: !!(cropType && cropType.regrowDays)
+    };
+  }
+
+  resolveMysterySeed(crop, cropIndex) {
+    this.trackCropStat('mysterySeed', 'harvested');
+
+    const roll = Math.random();
+    let outcome = 'crop';
+    let cropType = null;
+
+    if (roll < 0.05) {
+      this.addToWarehouse('lottery', 1);
+      this.data.obtained.lottery = true;
+      outcome = 'lottery';
+    } else if (roll < 0.10) {
+      this.addToWarehouse('trophy', 1);
+      this.data.obtained.trophy = true;
+      outcome = 'trophy';
+    } else {
+      const types = Object.keys(CROP_TYPES).filter(t => !CROP_TYPES[t].animalProduct);
+      cropType = types[Math.floor(Math.random() * types.length)];
+      this.addToWarehouse(cropType, 1);
+      outcome = 'crop';
+    }
+
+    this.data.farm.crops.splice(cropIndex, 1);
+
+    this.addLog('mystery_harvest', { outcome: outcome, cropType: cropType });
+    this.save();
+
+    return {
+      cropName: '神秘种子',
+      regrew: false,
+      outcome: outcome,
+      cropType: cropType
     };
   }
 
@@ -786,6 +930,74 @@ class Game {
     return { success: true, cropName: cropType.name };
   }
 
+  buyMysterySeed() {
+    const cost = CONFIG.MYSTERY_SEED_COST || 100;
+    const limit = CONFIG.MYSTERY_SEED_MONTHLY_LIMIT || 3;
+    const gold = this.data.gold || 0;
+
+    if (gold < cost) {
+      return { success: false, message: '金币不足' };
+    }
+
+    const month = Math.floor((this.data.day - 1) / 30);
+    if (this.data.shop.mysteryMonth !== month) {
+      this.data.shop.mysteryMonth = month;
+      this.data.shop.mysteryBought = 0;
+    }
+    if (this.data.shop.mysteryBought >= limit) {
+      return { success: false, message: `本月神秘种子已售罄（每月限购 ${limit} 次）` };
+    }
+
+    this.data.gold = gold - cost;
+    this.data.shop.mysteryBought += 1;
+
+    this.addToWarehouse('mysterySeed', 1);
+    this.addLog('mystery_seed', {});
+    this.save();
+
+    return { success: true };
+  }
+
+  addToWarehouse(type, count = 1) {
+    if (!Array.isArray(this.data.warehouse)) {
+      this.data.warehouse = [];
+    }
+    const entry = this.data.warehouse.find(w => w.type === type);
+    if (entry) {
+      entry.count += count;
+    } else {
+      this.data.warehouse.push({ type: type, count: count });
+    }
+  }
+
+  plantMysterySeed() {
+    if (!this.canPlantCrop()) {
+      return { success: false, message: '田地已满' };
+    }
+    const seedCount = this.getWarehouseCount('mysterySeed');
+    if (seedCount < 1) {
+      return { success: false, message: '仓库中没有神秘种子' };
+    }
+
+    const entry = this.data.warehouse.find(w => w.type === 'mysterySeed');
+    entry.count -= 1;
+    if (entry.count <= 0) {
+      this.data.warehouse = this.data.warehouse.filter(w => w.type !== 'mysterySeed');
+    }
+
+    const growth = CONFIG.MYSTERY_SEED_GROWTH_DAYS || 5;
+    this.pendingCrops.push({
+      id: 'pending_' + Date.now(),
+      name: '神秘种子',
+      type: 'mysterySeed',
+      daysToHarvest: growth,
+      plantDay: this.data.day + 1
+    });
+    this.save();
+
+    return { success: true, message: '神秘种子已安排种植，明天开始生长' };
+  }
+
   trackCropStat(type, field, amount = 1) {
     if (!this.data.cropStats[type]) {
       this.data.cropStats[type] = { harvested: 0, sold: 0 };
@@ -794,29 +1006,41 @@ class Game {
   }
 
   getSellPrice(type) {
+    if (SPECIAL_ITEM_VALUES[type] !== undefined) {
+      return SPECIAL_ITEM_VALUES[type];
+    }
+
     const cropType = CROP_TYPES[type];
     if (!cropType) return 0;
-    
+
     let price = cropType.harvestValue;
     const season = this.getSeasonInfo();
     price = Math.floor(price * season.incomeMultiplier);
-    
+
     const barnBonus = this.getBarnBonus();
     if (barnBonus > 0) {
       price = Math.floor(price * (1 + barnBonus));
     }
-    
+
     const todayEvent = this.todayEvents.find(e => e.goldMultiplier);
     if (todayEvent) {
       price = Math.floor(price * todayEvent.goldMultiplier);
     }
-    
+
     return price;
   }
 
   getWarehouseCount(type) {
     const entry = (this.data.warehouse || []).find(w => w.type === type);
     return entry ? entry.count : 0;
+  }
+
+  getItemDisplayName(type) {
+    if (type === 'mysterySeed') return '神秘种子';
+    if (type === 'lottery') return '未兑奖的彩票';
+    if (type === 'trophy') return '农场奖杯';
+    const cropType = CROP_TYPES[type];
+    return cropType ? cropType.name : type;
   }
 
   sellCrops(type, count) {
@@ -839,9 +1063,9 @@ class Game {
     this.data.gold = (this.data.gold || 0) + gold;
     this.trackCropStat(type, 'sold', count);
     
-    const cropType = CROP_TYPES[type];
+    const cropName = this.getItemDisplayName(type);
     this.addLog('sell', {
-      cropName: cropType ? cropType.name : type,
+      cropName: cropName,
       count: count,
       gold: gold
     });
@@ -850,7 +1074,7 @@ class Game {
     
     return {
       success: true,
-      cropName: cropType ? cropType.name : type,
+      cropName: cropName,
       count: count,
       gold: gold
     };
@@ -866,13 +1090,13 @@ class Game {
     const items = [...this.data.warehouse];
     
     items.forEach(w => {
-      const cropType = CROP_TYPES[w.type];
       const unitPrice = this.getSellPrice(w.type);
       const gold = unitPrice * w.count;
+      const cropName = this.getItemDisplayName(w.type);
       this.data.gold = (this.data.gold || 0) + gold;
       this.trackCropStat(w.type, 'sold', w.count);
       this.addLog('sell', {
-        cropName: cropType ? cropType.name : w.type,
+        cropName: cropName,
         count: w.count,
         gold: gold
       });
@@ -1178,7 +1402,16 @@ class Game {
             summary.push(`合作商人的${log.data.cropName}收购订单过期了`);
             break;
           case 'event':
-            summary.push(`${log.data.eventName} - ${log.data.eventDesc}`);
+            summary.push(`${log.data.eventName}${log.data.goldLost ? `，损失了 ${log.data.goldLost} 金币` : ''}`);
+            break;
+          case 'snow_safe':
+            summary.push('❄️ 植物平安无事');
+            break;
+          case 'mystery_seed':
+            summary.push(`🎁 购买了神秘种子，已进入仓库`);
+            break;
+          case 'mystery_harvest':
+            summary.push(`🌱 神秘种子收获了${log.data.outcome === 'lottery' ? '未兑奖的彩票' : log.data.outcome === 'trophy' ? '农场奖杯' : `随机作物（${CROP_TYPES[log.data.cropType] ? CROP_TYPES[log.data.cropType].name : '作物'}）`}`);
             break;
           case 'letter':
             summary.push(`收到${log.data.from}的信件：${log.data.title}`);
@@ -1191,6 +1424,18 @@ class Game {
             break;
           case 'chicken_buy':
             summary.push(`购买了一只母鸡（花费${log.data.cost}金币）`);
+            break;
+          case 'crop_cleared':
+            summary.push(`铲除了${log.data.cropName}`);
+            break;
+          case 'crop_withered':
+            summary.push(`季节更替，${log.data.count} 株持续收获作物枯萎了，记得铲除`);
+            break;
+          case 'building_demolish':
+            summary.push(`拆除了${log.data.buildingName}`);
+            break;
+          case 'crop_frozen':
+            summary.push(`寒流冻死了${log.data.cropName}`);
             break;
           case 'season_change':
             summary.push(`季节变换，进入了${log.data.seasonName}季`);

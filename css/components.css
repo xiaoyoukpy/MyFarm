@@ -241,6 +241,17 @@
   opacity: 0.9;
 }
 
+.crop-card.withered {
+  border-color: rgba(120, 120, 120, 0.45);
+  background: repeating-linear-gradient(135deg, rgba(120, 120, 120, 0.05) 0px, rgba(120, 120, 120, 0.05) 6px, transparent 6px, transparent 12px);
+  opacity: 0.85;
+}
+
+.withered-hint {
+  color: #9a6b3f;
+  font-weight: 600;
+}
+
 .crop-info {
   flex: 1;
 }
@@ -267,6 +278,44 @@
 
 .building-card:hover {
   box-shadow: var(--shadow-light);
+}
+
+.building-card .btn.btn-demolish {
+  width: 100%;
+  margin-top: 12px;
+  background: transparent;
+  color: var(--danger-color);
+  border: 1px solid rgba(139, 58, 58, 0.28);
+  box-shadow: none;
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+
+.building-card .btn.btn-demolish:hover:not(:disabled) {
+  background: rgba(139, 58, 58, 0.06);
+  border-color: rgba(139, 58, 58, 0.5);
+  transform: none;
+  box-shadow: none;
+}
+
+.section-tip {
+  margin: 0 0 14px;
+  font-size: 0.85rem;
+  color: var(--ink-light);
+  line-height: 1.5;
+}
+
+.mystery-box {
+  background: rgba(139, 58, 58, 0.04);
+  border: 1px dashed rgba(139, 58, 58, 0.25);
+  border-radius: var(--border-radius);
+  padding: 16px 18px;
+}
+
+.mystery-meta {
+  margin: 10px 0 14px;
+  font-weight: 600;
+  color: var(--accent-dark);
 }
 
 .building-header {

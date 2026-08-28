@@ -19,6 +19,10 @@ const CONFIG = {
   },
   
   SPECIAL_EVENT_CHANCE: 0.1,
+  SNOW_FREEZE_CHANCE: 0.3,
+  MYSTERY_SEED_COST: 100,
+  MYSTERY_SEED_MONTHLY_LIMIT: 3,
+  MYSTERY_SEED_GROWTH_DAYS: 5,
   MAX_BUILDING_LEVEL: 3,
   SEASON_DAYS: 30,
   PERFECT_SEASON_INCOME: 2500,
@@ -110,6 +114,34 @@ const CROP_TYPES = {
     harvestValue: 90,
     seedCost: 45
   },
+  watermelon: {
+    name: '西瓜',
+    daysToHarvest: 6,
+    harvestValue: 85,
+    seedCost: 35,
+    unlockCost: 200
+  },
+  eggplant: {
+    name: '茄子',
+    daysToHarvest: 5,
+    harvestValue: 55,
+    seedCost: 22,
+    unlockCost: 320
+  },
+  grape: {
+    name: '葡萄',
+    daysToHarvest: 7,
+    harvestValue: 95,
+    seedCost: 40,
+    unlockCost: 550
+  },
+  spinach: {
+    name: '菠菜',
+    daysToHarvest: 3,
+    harvestValue: 35,
+    seedCost: 12,
+    unlockCost: 90
+  },
   strawberry: {
     name: '草莓',
     daysToHarvest: 4,
@@ -178,6 +210,13 @@ const BUILDING_TYPES = {
     maxCount: 2,
     description: '缩短作物成熟时间，最多建造2座，效果可叠加。每座加速：Lv1 5% / Lv2 10% / Lv3 15%。',
     speedBonusPerLevel: [0.05, 0.10, 0.15]
+  },
+  harvester: {
+    name: '收割机',
+    baseCost: 2000,
+    baseBuildDays: 5,
+    maxCount: 1,
+    description: '作物成熟后自动收割并存入仓库，无需手动操作。每座都生效，最多1座。'
   }
 };
 
@@ -185,6 +224,12 @@ const INITIAL_CROPS = [
   { id: 'crop_1', name: '胡萝卜', type: 'carrot', plantDate: 1, daysToHarvest: 3, status: 'growing' },
   { id: 'crop_2', name: '胡萝卜', type: 'carrot', plantDate: 1, daysToHarvest: 3, status: 'growing' }
 ];
+
+const SPECIAL_ITEM_VALUES = {
+  mysterySeed: 50,
+  lottery: 100000,
+  trophy: 1000
+};
 
 const INITIAL_LETTERS = [
   {
@@ -266,9 +311,9 @@ const SPECIAL_EVENTS = [
   {
     id: 'storm',
     name: '暴风雨来袭！',
-    description: '损失了10金币',
+    description: '损失了当前金币的10%',
     type: 'negative',
-    goldLoss: 10
+    goldLossPercent: 0.1
   },
   {
     id: 'lucky_find',

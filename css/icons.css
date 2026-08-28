@@ -226,6 +226,36 @@
   top: -18px;
 }
 
+.crop-watermelon::before {
+  background: #3a9d23;
+  width: 24px;
+  height: 22px;
+  top: -20px;
+}
+
+.crop-eggplant::before {
+  background: #6a3d9a;
+  width: 14px;
+  height: 24px;
+  border-radius: 45% 45% 50% 50%;
+  top: -22px;
+}
+
+.crop-grape::before {
+  background: #7b4ea3;
+  width: 16px;
+  height: 16px;
+  top: -14px;
+}
+
+.crop-spinach::before {
+  background: #4f8f2f;
+  width: 22px;
+  height: 18px;
+  border-radius: 45% 45% 40% 40%;
+  top: -16px;
+}
+
 .crop-strawberry::before {
   background: #e63950;
   width: 16px;
@@ -444,6 +474,39 @@
   top: -15px;
   left: 50%;
   transform: translateX(-50%);
+}
+
+.building-harvester {
+  width: 34px;
+  height: 16px;
+  background: #c0392b;
+  position: absolute;
+  bottom: 6px;
+  left: 3px;
+  border-radius: 3px 3px 0 0;
+}
+
+.building-harvester::before {
+  content: '';
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: #2c3e50;
+  border-radius: 50%;
+  bottom: -7px;
+  left: 4px;
+  box-shadow: 14px 0 0 #2c3e50;
+}
+
+.building-harvester::after {
+  content: '';
+  position: absolute;
+  width: 11px;
+  height: 9px;
+  background: #e67e22;
+  border-radius: 2px;
+  top: -9px;
+  right: 2px;
 }
 
 /* 其他图标 */

@@ -79,25 +79,18 @@
               </span>
               <span class="nav-badge" style="display: none;">0</span>
             </button>
+
+            <button class="nav-item" data-tab="shop" aria-label="商店">
+              <span class="nav-item-label">
+                <span class="nav-item-icon">🛒</span>
+                <span>商店</span>
+              </span>
+            </button>
             
             <button class="nav-item" data-tab="farm" aria-label="农场情况">
               <span class="nav-item-label">
                 <span class="nav-item-icon">🌾</span>
                 <span>农场情况</span>
-              </span>
-            </button>
-            
-            <button class="nav-item" data-tab="warehouse" aria-label="农场仓库">
-              <span class="nav-item-label">
-                <span class="nav-item-icon">📦</span>
-                <span>农场仓库</span>
-              </span>
-            </button>
-            
-            <button class="nav-item" data-tab="ranch" aria-label="鸡舍">
-              <span class="nav-item-label">
-                <span class="nav-item-icon">🐔</span>
-                <span>鸡舍</span>
               </span>
             </button>
             
@@ -108,10 +101,17 @@
               </span>
             </button>
             
-            <button class="nav-item" data-tab="logs" aria-label="日志">
+            <button class="nav-item" data-tab="ranch" aria-label="鸡舍">
               <span class="nav-item-label">
-                <span class="nav-item-icon">📊</span>
-                <span>日志</span>
+                <span class="nav-item-icon">🐔</span>
+                <span>鸡舍</span>
+              </span>
+            </button>
+            
+            <button class="nav-item" data-tab="warehouse" aria-label="农场仓库">
+              <span class="nav-item-label">
+                <span class="nav-item-icon">📦</span>
+                <span>仓库</span>
               </span>
             </button>
             
@@ -121,28 +121,38 @@
                 <span>图鉴</span>
               </span>
             </button>
+
+            <button class="nav-item" data-tab="logs" aria-label="日志">
+              <span class="nav-item-label">
+                <span class="nav-item-icon">📊</span>
+                <span>日志</span>
+              </span>
+            </button>
           </nav>
           
           <section class="notebook-content">
             <div id="tab-letters" class="tab-content active">
             </div>
-            
+
+            <div id="tab-shop" class="tab-content">
+            </div>
+
             <div id="tab-farm" class="tab-content">
-            </div>
-            
-            <div id="tab-warehouse" class="tab-content">
-            </div>
-            
-            <div id="tab-ranch" class="tab-content">
             </div>
             
             <div id="tab-plans" class="tab-content">
             </div>
             
-            <div id="tab-logs" class="tab-content">
+            <div id="tab-ranch" class="tab-content">
+            </div>
+            
+            <div id="tab-warehouse" class="tab-content">
             </div>
             
             <div id="tab-collection" class="tab-content">
+            </div>
+            
+            <div id="tab-logs" class="tab-content">
             </div>
           </section>
         </main>
