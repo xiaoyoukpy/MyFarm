@@ -2130,6 +2130,9 @@ class UIManager {
         <div class="ws-section">
           <div class="ws-title">加工（消耗仓库作物 → 高价制品；也可给鱼去磷）</div>
           ${processable || '<div class="empty-state small">仓库中没有可加工的作物或鱼</div>'}
+          <div class="ws-row" style="margin-top:10px">
+            <button class="btn btn-primary btn-process-all">一键加工（含去磷）</button>
+          </div>
         </div>
         <div class="ws-jobs">${jobs}</div>
       </div>`;
@@ -2221,6 +2224,9 @@ class UIManager {
         <div class="ws-section">
           <div class="ws-title">烹饪（去磷鱼 → 熟鱼，耗时 1 天，售价为生鱼 2 倍）</div>
           ${descaled || '<div class="empty-state small">仓库中没有去磷鱼，请先在加工坊给鱼去磷</div>'}
+          <div class="ws-row" style="margin-top:10px">
+            <button class="btn btn-primary btn-cook-all">一键烹饪（全部去磷鱼）</button>
+          </div>
         </div>
         <div class="ws-jobs">${jobs}</div>
       </div>`;
@@ -2240,10 +2246,12 @@ class UIManager {
           <div class="ws-row" style="margin-top:8px">
             <input type="number" id="bank-deposit-amount" class="bank-amount" placeholder="存入金额" min="1">
             <button class="btn btn-sm btn-bank-deposit">存入</button>
+            <button class="btn btn-sm btn-bank-deposit-all">全部存入</button>
           </div>
           <div class="ws-row" style="margin-top:6px">
             <input type="number" id="bank-withdraw-amount" class="bank-amount" placeholder="取出金额" min="1">
             <button class="btn btn-sm btn-bank-withdraw">取出</button>
+            <button class="btn btn-sm btn-bank-withdraw-all">全部取出</button>
           </div>
         </div>
       </div>`;
@@ -2296,6 +2304,16 @@ class UIManager {
       });
     });
 
+    root.querySelector('.btn-process-all')?.addEventListener('click', () => {
+      const r = game.processAll();
+      if (r.success) {
+        this.showToast(`已一键提交 ${r.count} 份加工/去磷任务`);
+        rerender();
+      } else {
+        this.showToast(r.message, 'error');
+      }
+    });
+
     root.querySelectorAll('.btn-hire-worker').forEach(btn => {
       btn.addEventListener('click', () => {
         const r = game.hireDockWorker();
@@ -2335,6 +2353,16 @@ class UIManager {
       });
     });
 
+    root.querySelector('.btn-cook-all')?.addEventListener('click', () => {
+      const r = game.cookAll();
+      if (r.success) {
+        this.showToast(`已一键提交 ${r.count} 份熟鱼烹饪任务`);
+        rerender();
+      } else {
+        this.showToast(r.message, 'error');
+      }
+    });
+
     const depositInput = root.querySelector('#bank-deposit-amount');
     root.querySelector('.btn-bank-deposit')?.addEventListener('click', () => {
       const amount = depositInput ? parseInt(depositInput.value) : 0;
@@ -2353,6 +2381,26 @@ class UIManager {
       const r = game.withdrawBank(amount);
       if (r.success) {
         this.showToast(`已取出 ${r.got} 金币`);
+        rerender();
+      } else {
+        this.showToast(r.message, 'error');
+      }
+    });
+
+    root.querySelector('.btn-bank-deposit-all')?.addEventListener('click', () => {
+      const r = game.depositAll();
+      if (r.success) {
+        this.showToast(`已全部存入，存款 ${Math.floor(r.deposited)} 金币`);
+        rerender();
+      } else {
+        this.showToast(r.message, 'error');
+      }
+    });
+
+    root.querySelector('.btn-bank-withdraw-all')?.addEventListener('click', () => {
+      const r = game.withdrawAll();
+      if (r.success) {
+        this.showToast(`已全部取出 ${r.got} 金币`);
         rerender();
       } else {
         this.showToast(r.message, 'error');

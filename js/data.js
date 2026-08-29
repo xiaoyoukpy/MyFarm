@@ -58,7 +58,7 @@ const CONFIG = {
   CHICKEN_PRICE: 50,
   COOP_CAPACITY_PER: 5,
   
-  DEBUG_MODE: true,
+  DEBUG_MODE: false,
 
   SPONSOR: {
     wechatId: '',

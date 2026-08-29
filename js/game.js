@@ -1092,6 +1092,24 @@ class Game {
     return { success: true, message: `已开始烹饪 ${amount} 份熟${this.getFish(fishId) ? this.getFish(fishId).name : fishId}，约 ${days} 天后完成` };
   }
 
+  cookAll() {
+    if (!this.isNewAreaBuildingBuilt('deli')) {
+      return { success: false, message: '熟食间尚未建造' };
+    }
+    const items = (this.data.warehouse || [])
+      .filter(w => typeof w.type === 'string' && w.type.indexOf('fish_descaled_') === 0)
+      .map(w => ({ fishId: w.type.slice('fish_descaled_'.length), count: w.count }));
+    let started = 0;
+    items.forEach(it => {
+      const r = this.startCooking(it.fishId, it.count);
+      if (r.success) started += it.count;
+    });
+    if (started > 0) {
+      return { success: true, count: started };
+    }
+    return { success: false, message: '仓库中没有去磷鱼' };
+  }
+
   processDeliJobs() {
     if (!this.data.newArea.deliJobs || this.data.newArea.deliJobs.length === 0) return;
     const remaining = [];
@@ -1134,6 +1152,14 @@ class Game {
     this.data.gold = (this.data.gold || 0) + amount;
     this.save();
     return { success: true, deposited: this.data.bank.deposited, got: amount };
+  }
+
+  depositAll() {
+    return this.depositBank(this.data.gold || 0);
+  }
+
+  withdrawAll() {
+    return this.withdrawBank(this.data.bank.deposited || 0);
   }
 
   processBankInterest() {
@@ -1219,6 +1245,30 @@ class Game {
     });
     this.save();
     return { success: true, message: `已开始加工 ${amount} 份${this.getProductName(cropType)}，约 ${days} 天后完成` };
+  }
+
+  processAll() {
+    const workshop = this.getNewAreaBuilding('workshop');
+    if (!workshop || workshop.status !== 'built') {
+      return { success: false, message: '加工坊尚未建造' };
+    }
+    if (workshop.pendingMaintenance) {
+      return { success: false, message: '加工坊已停用，请先补缴维护费' };
+    }
+    const items = (this.data.warehouse || []).map(w => ({ type: w.type, count: w.count }));
+    let started = 0;
+    items.forEach(w => {
+      const isCrop = CROP_TYPES[w.type] && !CROP_TYPES[w.type].animalProduct;
+      const isRawFish = typeof w.type === 'string' && w.type.indexOf('fish_raw_') === 0;
+      if (isCrop || isRawFish) {
+        const r = this.startProcessing(w.type, w.count);
+        if (r.success) started += w.count;
+      }
+    });
+    if (started > 0) {
+      return { success: true, count: started };
+    }
+    return { success: false, message: '仓库中没有可加工/去磷的物品' };
   }
 
   processWorkshopJobs() {
