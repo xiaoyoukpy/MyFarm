@@ -2216,6 +2216,7 @@ class UIManager {
       }
     }
     this.updateSceneButton();
+    this.updateHeader();
     this.switchTab(scene === 'town' ? this.currentTownTab : this.currentTab);
 
     const animatedEl = scene === 'town' ? town : farm;
