@@ -23,6 +23,7 @@ class Game {
       day: 1,
       gold: CONFIG.INITIAL_GOLD,
       maxPlans: CONFIG.INITIAL_MAX_PLANS,
+      planSlotsBought: 0,
       farm: {
         crops: JSON.parse(JSON.stringify(INITIAL_CROPS)),
         buildings: [
@@ -104,6 +105,9 @@ class Game {
       }
       if (!this.data.maxPlans) {
         this.data.maxPlans = CONFIG.INITIAL_MAX_PLANS;
+      }
+      if (typeof this.data.planSlotsBought !== 'number') {
+        this.data.planSlotsBought = 0;
       }
       if (!Array.isArray(this.data.warehouse)) {
         this.data.warehouse = [];
@@ -901,6 +905,25 @@ class Game {
     return { success: true, name: def.name };
   }
 
+  buyPlanSlot() {
+    const costs = CONFIG.PLAN_SLOT_COSTS || [5000, 10000];
+    const maxSlots = costs.length;
+    const bought = this.data.planSlotsBought || 0;
+    if (bought >= maxSlots) {
+      return { success: false, message: '扩容计划已达上限' };
+    }
+    const cost = costs[bought];
+    if ((this.data.gold || 0) < cost) {
+      return { success: false, message: '金币不足' };
+    }
+    this.data.gold -= cost;
+    this.data.planSlotsBought = bought + 1;
+    this.data.maxPlans = (this.data.maxPlans || CONFIG.INITIAL_MAX_PLANS) + 1;
+    this.addLog('plan_slot_buy', { cost: cost, maxPlans: this.data.maxPlans });
+    this.save();
+    return { success: true, cost: cost, maxPlans: this.data.maxPlans };
+  }
+
   getProductType(cropType) {
     return 'product_' + cropType;
   }
@@ -1489,6 +1512,14 @@ class Game {
         const queued = this.data.plans.filter(p => p.isActive && p.type === 'build' && p.onComplete?.buildingData?.type === buildingType).length;
         if (owned + queued >= def.maxCount) {
           return { success: false, message: `${def.name}建造数量已达上限（${def.maxCount}个）` };
+        }
+      }
+      if (buildingType === 'field') {
+        const maxFields = CONFIG.MAX_FIELDS || 10;
+        const landCount = this.data.farm.landCount || 0;
+        const queuedFields = this.data.plans.filter(p => p.isActive && p.type === 'build' && p.onComplete?.buildingData?.type === 'field').length;
+        if (landCount + queuedFields >= maxFields) {
+          return { success: false, message: `田地数量已达上限（最多 ${maxFields} 块）` };
         }
       }
     }

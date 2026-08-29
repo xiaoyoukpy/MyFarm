@@ -531,6 +531,12 @@ class UIManager {
       ? `本月剩余 ${remaining}/${limit} 次`
       : `本月已售罄（每月限购 ${limit} 次）`;
 
+    const planCosts = CONFIG.PLAN_SLOT_COSTS || [5000, 10000];
+    const planBought = game.data.planSlotsBought || 0;
+    const planMax = planCosts.length;
+    const planMaxPlans = (CONFIG.INITIAL_MAX_PLANS || 3) + planMax;
+    const canBuySlot = planBought < planMax && gold >= planCosts[planBought];
+
     container.innerHTML = `
       <div class="content-section">
         <h3 class="content-section-title">🍀 种子</h3>
@@ -548,6 +554,15 @@ class UIManager {
           </button>
         </div>
       </div>
+      <div class="content-section">
+        <h3 class="content-section-title">📈 扩容计划</h3>
+        <div class="mystery-box">
+          <p class="section-tip">购买额外的计划槽位，可同时进行更多计划。当前槽位：${game.data.maxPlans}/${planMaxPlans}（已扩容 ${planBought}/${planMax} 次）。</p>
+          ${planBought < planMax
+            ? `<button class="btn btn-primary btn-buy-slot" ${canBuySlot ? '' : 'disabled'}>购买扩容计划（${planCosts[planBought]}金币）</button>`
+            : `<div class="empty-state small"><div class="empty-state-text">扩容计划已达上限</div></div>`}
+        </div>
+      </div>
     `;
 
     container.querySelectorAll('.btn-unlock-crop').forEach(btn => {
@@ -561,12 +576,26 @@ class UIManager {
     container.querySelector('.btn-buy-mystery')?.addEventListener('click', () => {
       this.handleBuyMysterySeed();
     });
+
+    container.querySelector('.btn-buy-slot')?.addEventListener('click', () => {
+      this.handleBuyPlanSlot();
+    });
   }
 
   handleBuyMysterySeed() {
     const result = game.buyMysterySeed();
     if (result.success) {
       this.showToast('已购买神秘种子，进入仓库，可前往仓库种植');
+      this.render();
+    } else {
+      this.showToast(result.message, 'error');
+    }
+  }
+
+  handleBuyPlanSlot() {
+    const result = game.buyPlanSlot();
+    if (result.success) {
+      this.showToast(`扩容成功！计划槽位已提升至 ${result.maxPlans}`);
       this.render();
     } else {
       this.showToast(result.message, 'error');
