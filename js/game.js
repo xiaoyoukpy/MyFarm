@@ -1015,9 +1015,15 @@ class Game {
       return { success: false, message: `工人数量已达上限（${max} 人）` };
     }
     this.data.dock.workers = this.getDockWorkers() + 1;
-    this.data.dock.striking = false;
+    this.updateStrikeState();
     this.save();
     return { success: true, workers: this.getDockWorkers() };
+  }
+
+  updateStrikeState() {
+    const workers = this.getDockWorkers();
+    const wage = CONFIG.DOCK_WORKER_WAGE || 400;
+    this.data.dock.striking = workers > 0 && (this.data.gold || 0) < wage * workers;
   }
 
   fireDockWorker() {
@@ -1025,6 +1031,7 @@ class Game {
       return { success: false, message: '当前没有工人' };
     }
     this.data.dock.workers = this.getDockWorkers() - 1;
+    this.updateStrikeState();
     this.save();
     return { success: true, workers: this.getDockWorkers() };
   }
