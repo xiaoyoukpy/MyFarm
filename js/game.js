@@ -1044,6 +1044,7 @@ class Game {
 
     this.data.gold -= total;
     this.data.dock.striking = false;
+    this.addLog('fish_wage', { amount: total, workers: workers });
 
     let caught = 0;
     const catches = workers * 2;

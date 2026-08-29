@@ -1278,6 +1278,9 @@ class UIManager {
     if (type === 'mysterySeed') return '<span class="inline-icon">🌱</span>';
     if (type === 'lottery') return '<span class="inline-icon">🎟️</span>';
     if (type === 'trophy') return '<span class="inline-icon">🏆</span>';
+    if (typeof type === 'string' && type.indexOf('fish_raw_') === 0) return '<span class="inline-icon">🐟</span>';
+    if (typeof type === 'string' && type.indexOf('fish_descaled_') === 0) return '<span class="inline-icon">🐠</span>';
+    if (typeof type === 'string' && type.indexOf('fish_cooked_') === 0) return '<span class="inline-icon">🍢</span>';
     if (typeof type === 'string' && type.indexOf('product_') === 0) return '<span class="inline-icon">🥫</span>';
     return `<span class="inline-icon"><span class="crop-icon crop-mature crop-${type}"></span></span>`;
   }
@@ -1286,6 +1289,9 @@ class UIManager {
     if (type === 'mysterySeed') return '神秘种子';
     if (type === 'lottery') return '未兑奖的彩票';
     if (type === 'trophy') return '农场奖杯';
+    if (typeof type === 'string' && type.indexOf('fish_') === 0) {
+      return game.getItemDisplayName(type);
+    }
     if (typeof type === 'string' && type.indexOf('product_') === 0) {
       const cropType = type.slice('product_'.length);
       return game.getProductName(cropType);
@@ -1316,8 +1322,10 @@ class UIManager {
   showSellModal(type) {
     const isSpecial = SPECIAL_ITEM_VALUES[type] !== undefined;
     const cropType = CROP_TYPES[type];
+    const isFish = typeof type === 'string' && type.indexOf('fish_') === 0;
+    const isProduct = typeof type === 'string' && type.indexOf('product_') === 0;
     const name = this.getItemName(type);
-    if (!cropType && !isSpecial) return;
+    if (!cropType && !isSpecial && !isFish && !isProduct) return;
 
     const count = game.getWarehouseCount(type);
     if (count < 1) {
@@ -1963,6 +1971,8 @@ class UIManager {
         return `季节更替，${logItem.data.count} 株持续收获作物枯萎了，记得铲除`;
       case 'fish_catch':
         return `🎣 码头工人钓上了 ${logItem.data.count} 条鱼`;
+      case 'fish_wage':
+        return `💰 支付码头工人工资 ${logItem.data.amount} 金币（${logItem.data.workers} 人）`;
       case 'fish_strike':
         return `⚠️ 码头工人因欠薪（需 ${logItem.data.need} 金币）罢工了，今日没有渔获`;
       case 'fish_descaled':
