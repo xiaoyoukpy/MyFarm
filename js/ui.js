@@ -537,6 +537,11 @@ class UIManager {
     const planMaxPlans = (CONFIG.INITIAL_MAX_PLANS || 3) + planMax;
     const canBuySlot = planBought < planMax && gold >= planCosts[planBought];
 
+    const landCost = CONFIG.LAND_COST || 25000;
+    const landsBought = game.data.landsBought || 0;
+    const landMaxFields = (CONFIG.MAX_FIELDS || 10) + landsBought;
+    const canBuyLand = gold >= landCost;
+
     container.innerHTML = `
       <div class="content-section">
         <h3 class="content-section-title">🍀 种子</h3>
@@ -563,6 +568,13 @@ class UIManager {
             : `<div class="empty-state small"><div class="empty-state-text">扩容计划已达上限</div></div>`}
         </div>
       </div>
+      <div class="content-section">
+        <h3 class="content-section-title">🌾 买地</h3>
+        <div class="mystery-box">
+          <p class="section-tip">花费 ${landCost} 金币购买一块地，购买后田地数量上限 +1（当前上限 ${landMaxFields} 块），可用来扩建更多田地。</p>
+          <button class="btn btn-primary btn-buy-land" ${canBuyLand ? '' : 'disabled'}>购买土地（${landCost}金币）</button>
+        </div>
+      </div>
     `;
 
     container.querySelectorAll('.btn-unlock-crop').forEach(btn => {
@@ -580,6 +592,10 @@ class UIManager {
     container.querySelector('.btn-buy-slot')?.addEventListener('click', () => {
       this.handleBuyPlanSlot();
     });
+
+    container.querySelector('.btn-buy-land')?.addEventListener('click', () => {
+      this.handleBuyLand();
+    });
   }
 
   handleBuyMysterySeed() {
@@ -596,6 +612,16 @@ class UIManager {
     const result = game.buyPlanSlot();
     if (result.success) {
       this.showToast(`扩容成功！计划槽位已提升至 ${result.maxPlans}`);
+      this.render();
+    } else {
+      this.showToast(result.message, 'error');
+    }
+  }
+
+  handleBuyLand() {
+    const result = game.buyLand();
+    if (result.success) {
+      this.showToast(`购地成功！田地上限提升至 ${(CONFIG.MAX_FIELDS || 10) + result.landsBought} 块`);
       this.render();
     } else {
       this.showToast(result.message, 'error');
@@ -1522,13 +1548,14 @@ class UIManager {
           btnText = '已满';
         }
       }
+      const cost = game.getBuildingCost(type);
       return `
         <div class="action-item">
           <div class="action-info">
             <span class="action-name">${building.name}</span>
-            <span class="action-detail">${building.baseBuildDays}天 | ${building.baseCost}金币${countInfo}</span>
+            <span class="action-detail">${building.baseBuildDays}天 | ${cost}金币${countInfo}</span>
           </div>
-          <button class="btn btn-action btn-build" data-building-type="${type}" data-cost="${building.baseCost}">
+          <button class="btn btn-action btn-build" data-building-type="${type}" data-cost="${cost}">
             ${btnText}
           </button>
         </div>
@@ -1687,6 +1714,7 @@ class UIManager {
   handleBuild(buildingType, cost) {
     const building = BUILDING_TYPES[buildingType];
     if (!building) return;
+    cost = game.getBuildingCost(buildingType);
     
     if (building.maxCount) {
       const owned = game.data.farm.buildings.filter(b => b.type === buildingType).length;

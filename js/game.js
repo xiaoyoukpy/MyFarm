@@ -24,6 +24,7 @@ class Game {
       gold: CONFIG.INITIAL_GOLD,
       maxPlans: CONFIG.INITIAL_MAX_PLANS,
       planSlotsBought: 0,
+      landsBought: 0,
       farm: {
         crops: JSON.parse(JSON.stringify(INITIAL_CROPS)),
         buildings: [
@@ -108,6 +109,9 @@ class Game {
       }
       if (typeof this.data.planSlotsBought !== 'number') {
         this.data.planSlotsBought = 0;
+      }
+      if (typeof this.data.landsBought !== 'number') {
+        this.data.landsBought = 0;
       }
       if (!Array.isArray(this.data.warehouse)) {
         this.data.warehouse = [];
@@ -672,15 +676,18 @@ class Game {
       }
     });
   }
-
   autoHarvest() {
-    const hasHarvester = this.data.farm.buildings.some(b => b.type === 'harvester' && b.status === 'built');
-    if (!hasHarvester) return;
+    const harvesters = this.data.farm.buildings.filter(b => b.type === 'harvester' && b.status === 'built');
+    if (harvesters.length === 0) return;
 
+    const cap = harvesters.length * (CONFIG.HARVESTER_CAPACITY || 16);
     const harvestable = this.data.farm.crops.filter(c => c.status === 'harvestable');
-    harvestable.forEach(crop => {
+    let harvested = 0;
+    for (const crop of harvestable) {
+      if (harvested >= cap) break;
       this.harvestCrop(crop.id);
-    });
+      harvested += 1;
+    }
   }
 
   generateWeather() {
@@ -922,6 +929,30 @@ class Game {
     this.addLog('plan_slot_buy', { cost: cost, maxPlans: this.data.maxPlans });
     this.save();
     return { success: true, cost: cost, maxPlans: this.data.maxPlans };
+  }
+
+  getBuildingCost(type) {
+    const def = BUILDING_TYPES[type];
+    if (!def) return 0;
+    if (type === 'harvester') {
+      const owned = this.data.farm.buildings.filter(b => b.type === 'harvester').length;
+      const queued = this.data.plans.filter(p => p.isActive && p.type === 'build' && p.onComplete?.buildingData?.type === 'harvester').length;
+      const count = owned + queued;
+      return Math.round(def.baseCost * Math.pow(CONFIG.HARVESTER_COST_FACTOR || 1.5, count));
+    }
+    return def.baseCost;
+  }
+
+  buyLand() {
+    const cost = CONFIG.LAND_COST || 25000;
+    if ((this.data.gold || 0) < cost) {
+      return { success: false, message: '金币不足' };
+    }
+    this.data.gold -= cost;
+    this.data.landsBought = (this.data.landsBought || 0) + 1;
+    this.addLog('land_buy', { landsBought: this.data.landsBought });
+    this.save();
+    return { success: true, cost: cost, landsBought: this.data.landsBought };
   }
 
   getProductType(cropType) {
@@ -1515,11 +1546,11 @@ class Game {
         }
       }
       if (buildingType === 'field') {
-        const maxFields = CONFIG.MAX_FIELDS || 10;
+        const maxFields = (CONFIG.MAX_FIELDS || 10) + (this.data.landsBought || 0);
         const landCount = this.data.farm.landCount || 0;
         const queuedFields = this.data.plans.filter(p => p.isActive && p.type === 'build' && p.onComplete?.buildingData?.type === 'field').length;
         if (landCount + queuedFields >= maxFields) {
-          return { success: false, message: `田地数量已达上限（最多 ${maxFields} 块）` };
+          return { success: false, message: `田地数量已达上限（最多 ${maxFields} 块，可在商店买地扩充）` };
         }
       }
     }

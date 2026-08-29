@@ -11,6 +11,9 @@ const CONFIG = {
   INITIAL_MAX_PLANS: 3,
   PLAN_SLOT_COSTS: [5000, 10000],
   MAX_FIELDS: 10,
+  HARVESTER_CAPACITY: 16,
+  HARVESTER_COST_FACTOR: 1.5,
+  LAND_COST: 25000,
   INITIAL_LAND_COUNT: 2,
   
   WEATHER_PROBABILITIES: {
@@ -250,8 +253,7 @@ const BUILDING_TYPES = {
     name: '收割机',
     baseCost: 2000,
     baseBuildDays: 5,
-    maxCount: 1,
-    description: '作物成熟后自动收割并存入仓库，无需手动操作。每座都生效，最多1座。'
+    description: '作物成熟后自动收割并存入仓库，无需手动操作。每座每天自动收割最多16个作物，可多座叠加（无购买上限，越买越贵）。'
   }
 };
 
