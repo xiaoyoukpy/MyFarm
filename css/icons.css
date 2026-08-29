@@ -256,6 +256,14 @@
   top: -16px;
 }
 
+.crop-apple::before {
+  background: #d63a2f;
+  width: 18px;
+  height: 18px;
+  border-radius: 48% 48% 50% 50%;
+  top: -16px;
+}
+
 .crop-strawberry::before {
   background: #e63950;
   width: 16px;

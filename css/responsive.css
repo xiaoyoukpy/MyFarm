@@ -1,0 +1,168 @@
+/**
+ * responsive.css - 移动端适配
+ * 窄屏下将侧边栏改为顶部横向滚动，整体改为单列布局
+ */
+
+@media (max-width: 820px) {
+  .game-screen {
+    padding: 8px;
+    align-items: stretch;
+  }
+
+  .notebook {
+    max-width: 100%;
+    min-height: auto;
+    border-radius: 8px;
+  }
+
+  .notebook-body {
+    flex-direction: column;
+    min-height: auto;
+  }
+
+  .notebook-sidebar {
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 6px 8px;
+    border-right: none;
+    border-bottom: 1px solid rgba(44, 24, 16, 0.12);
+    -webkit-overflow-scrolling: touch;
+  }
+  .notebook-sidebar::before {
+    display: none;
+  }
+
+  .nav-item {
+    width: auto;
+    flex-shrink: 0;
+    margin-bottom: 0;
+    padding: 10px 14px;
+    white-space: nowrap;
+    border-radius: 8px;
+  }
+  .nav-item.active::before {
+    display: none;
+  }
+  .nav-item-label {
+    gap: 6px;
+  }
+
+  .notebook-content {
+    padding: 16px 14px 24px;
+  }
+
+  .notebook-header {
+    padding: 12px 16px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .notebook-title {
+    font-size: 1.3rem;
+  }
+  .notebook-meta {
+    font-size: 0.9rem;
+  }
+
+  .notebook-footer {
+    flex-wrap: wrap;
+    padding: 12px;
+    gap: 10px;
+  }
+  .btn-flip {
+    font-size: 0.95rem;
+    padding: 10px 18px;
+  }
+
+  /* 轮盘缩小 */
+  .wheel {
+    width: 220px;
+    height: 220px;
+  }
+  .wheel-disc {
+    width: 220px;
+    height: 220px;
+  }
+  .wheel-pointer {
+    border-left: 9px solid transparent;
+    border-right: 9px solid transparent;
+    border-bottom: 16px solid var(--accent-dark);
+    top: -6px;
+  }
+
+  /* 加工坊行 */
+  .ws-row {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .ws-amount {
+    width: 70px;
+  }
+
+  /* 赞助 */
+  .sponsor-tiers {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  .sponsor-tier {
+    padding: 14px 4px;
+  }
+  .sponsor-price {
+    font-size: 1.15rem;
+  }
+
+  /* 悬浮按钮避免遮挡页脚 */
+  .sponsor-btn {
+    bottom: 66px;
+    left: 8px;
+    padding: 7px 12px;
+    font-size: 0.85rem;
+  }
+  .scene-toggle {
+    writing-mode: vertical-rl;
+    padding: 12px 8px;
+    font-size: 0.9rem;
+  }
+
+  /* 弹窗内边距 */
+  .new-area-panel,
+  .sponsor-panel {
+    max-width: 96%;
+  }
+  .new-area-head,
+  .sponsor-head {
+    padding: 16px 18px;
+  }
+  .new-area-content,
+  .sponsor-body {
+    padding: 16px 18px;
+  }
+}
+
+@media (max-width: 480px) {
+  .notebook-title {
+    font-size: 1.15rem;
+  }
+  .notebook-content {
+    padding: 12px 10px 20px;
+  }
+  .wheel {
+    width: 180px;
+    height: 180px;
+  }
+  .wheel-disc {
+    width: 180px;
+    height: 180px;
+  }
+  .sponsor-price {
+    font-size: 1rem;
+  }
+  .sponsor-gold {
+    font-size: 0.8rem;
+  }
+  .notebook-meta {
+    font-size: 0.8rem;
+  }
+}

@@ -6,6 +6,8 @@
 class UIManager {
   constructor() {
     this.currentTab = 'letters';
+    this.currentScene = 'farm';
+    this.currentTownTab = 'workshop';
     this.currentView = 'menu';
     this.currentMenuMode = 'continue';
     this.modal = null;
@@ -62,8 +64,16 @@ class UIManager {
     this.elements.flipButton?.addEventListener('click', () => {
       if (this.onFlipPage) this.onFlipPage();
     });
+    document.getElementById('flip-button-town')?.addEventListener('click', () => {
+      if (this.onFlipPage) this.onFlipPage();
+    });
 
     this.elements.resetButton?.addEventListener('click', () => {
+      this.showConfirm('重置游戏', '确定要重置当前存档吗？所有进度将丢失。', () => {
+        if (this.onResetGame) this.onResetGame();
+      });
+    });
+    document.getElementById('reset-button-town')?.addEventListener('click', () => {
       this.showConfirm('重置游戏', '确定要重置当前存档吗？所有进度将丢失。', () => {
         if (this.onResetGame) this.onResetGame();
       });
@@ -81,6 +91,70 @@ class UIManager {
         this.showDebugModal();
       });
     }
+
+    document.querySelectorAll('.btn-menu-trigger').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.showConfirm('返回主菜单', '返回主菜单前会自动保存当前进度。', () => {
+          if (this.onBackToMenu) this.onBackToMenu();
+        });
+      });
+    });
+
+    document.getElementById('scene-toggle')?.addEventListener('click', () => {
+      if (this.currentScene === 'town') {
+        this.switchScene('farm');
+      } else if (!game.data.newArea.unlocked) {
+        this.openNewArea();
+      } else {
+        this.switchScene('town');
+      }
+    });
+    document.getElementById('new-area-close')?.addEventListener('click', () => {
+      this.closeNewArea();
+    });
+
+    document.getElementById('sponsor-btn')?.addEventListener('click', () => {
+      this.openSponsor();
+    });
+    document.getElementById('sponsor-close')?.addEventListener('click', () => {
+      this.closeSponsor();
+    });
+  }
+
+  openSponsor() {
+    const overlay = document.getElementById('sponsor-overlay');
+    if (overlay) overlay.classList.remove('hidden');
+    this.renderSponsor();
+  }
+
+  closeSponsor() {
+    const overlay = document.getElementById('sponsor-overlay');
+    if (overlay) overlay.classList.add('hidden');
+  }
+
+  renderSponsor() {
+    const body = document.getElementById('sponsor-body');
+    if (!body) return;
+    const sponsor = CONFIG.SPONSOR || { tiers: [] };
+    const tiers = sponsor.tiers || [];
+    body.innerHTML = `
+      <p class="section-tip">你的支持是农场继续运转的动力，感谢你的鼓励！</p>
+      <div class="sponsor-tiers">
+        ${tiers.map(t => `
+          <button class="sponsor-tier" data-price="${t.price}">
+            <div class="sponsor-price">¥${t.price}</div>
+          </button>`).join('')}
+      </div>`;
+
+    body.querySelectorAll('.sponsor-tier').forEach(btn => {
+      btn.addEventListener('click', () => {
+        game.data.gold = (game.data.gold || 0) + 1000;
+        game.save();
+        this.updateHeader();
+        this.showToast('赞助成功，感谢支持！获得 1000 金币');
+        this.closeSponsor();
+      });
+    });
   }
 
   showMenu() {
@@ -127,7 +201,25 @@ class UIManager {
     this.currentView = 'game';
     this.elements.menuScreen?.classList.add('hidden');
     this.elements.gameScreen?.classList.remove('hidden');
+    this.resetScene();
     this.render();
+  }
+
+  resetScene() {
+    this.currentScene = 'farm';
+    this.currentTownTab = 'workshop';
+    this.currentTab = 'letters';
+    const farm = document.getElementById('notebook-farm');
+    const town = document.getElementById('notebook-town');
+    if (farm) {
+      farm.classList.remove('hidden', 'scening-left', 'scening-right');
+    }
+    if (town) {
+      town.classList.add('hidden');
+      town.classList.remove('scening-left', 'scening-right');
+    }
+    this.updateSceneButton();
+    this.switchTab('letters');
   }
 
   renderMenu(mode = 'continue') {
@@ -235,36 +327,48 @@ class UIManager {
     this.updateHeader();
     this.renderCurrentTab();
     this.updateNavBadges();
+    this.updateSceneButton();
   }
 
   updateHeader() {
-    if (this.elements.dayDisplay) {
-      const seasonName = game.getSeasonInfo ? game.getSeasonInfo().name : '';
-      this.elements.dayDisplay.textContent = `第 ${game.data.day} 天 · ${seasonName}季`;
-    }
-    if (this.elements.goldDisplay) {
-      const gold = Number(game.data.gold);
-      this.elements.goldDisplay.textContent = isNaN(gold) ? 0 : gold;
-    }
+    const seasonName = game.getSeasonInfo ? game.getSeasonInfo().name : '';
+    const dayText = `第 ${game.data.day} 天 · ${seasonName}季`;
+    const goldText = isNaN(Number(game.data.gold)) ? 0 : Number(game.data.gold);
+    ['day-display', 'day-display-town'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = dayText;
+    });
+    ['gold-display', 'gold-display-town'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = goldText;
+    });
   }
 
   switchTab(tabName) {
-    this.currentTab = tabName;
-    
+    if (this.currentScene === 'town') {
+      this.currentTownTab = tabName;
+    } else {
+      this.currentTab = tabName;
+    }
+
     this.elements.navItems.forEach(item => {
       item.classList.toggle('active', item.dataset.tab === tabName);
     });
-    
+
     this.elements.tabContents.forEach(content => {
       content.classList.toggle('active', content.id === `tab-${tabName}`);
     });
-    
+
     this.renderCurrentTab();
-    
+
     if (this.onTabChange) this.onTabChange(tabName);
   }
 
   renderCurrentTab() {
+    if (this.currentScene === 'town') {
+      this.renderTownTab();
+      return;
+    }
     switch (this.currentTab) {
       case 'shop':
         this.renderShop();
@@ -392,27 +496,35 @@ class UIManager {
     const remaining = Math.max(0, limit - boughtThisMonth);
     const gold = game.data.gold || 0;
 
-    const lockedCrops = Object.entries(CROP_TYPES)
-      .filter(([type, crop]) => crop.unlockCost && !game.isCropUnlocked(type))
-      .map(([type, crop]) => {
-        const regrowText = crop.regrowDays ? ` | 收获后再生${crop.regrowDays}天` : '';
-        const canAfford = gold >= crop.unlockCost;
-        return `
-          <div class="action-item">
-            <div class="action-info">
-              <span class="action-name">${crop.name} 🔒</span>
-              <span class="action-detail">${crop.daysToHarvest}天 | 解锁费 ${crop.unlockCost}金币${regrowText}</span>
-            </div>
-            <button class="btn btn-action btn-unlock-crop" data-crop-type="${type}" data-cost="${crop.unlockCost}" ${canAfford ? '' : 'disabled'}>
-              解锁
-            </button>
-          </div>
-        `;
-      }).join('');
+    const locked = Object.entries(CROP_TYPES)
+      .filter(([type, crop]) => crop.unlockCost && !game.isCropUnlocked(type));
 
-    const unlockSection = lockedCrops
-      ? `<div class="card-list">${lockedCrops}</div>`
-      : `<div class="empty-state small"><div class="empty-state-text">所有作物均已解锁</div></div>`;
+    const cropItem = ([type, crop]) => {
+      const regrowText = crop.regrowDays ? ` | 收获后再生${crop.regrowDays}天` : '';
+      const canAfford = gold >= crop.unlockCost;
+      return `
+        <div class="action-item">
+          <div class="action-info">
+            <span class="action-name">${crop.name} 🔒</span>
+            <span class="action-detail">${crop.daysToHarvest}天 | 解锁费 ${crop.unlockCost}金币${regrowText}</span>
+          </div>
+          <button class="btn btn-action btn-unlock-crop" data-crop-type="${type}" data-cost="${crop.unlockCost}" ${canAfford ? '' : 'disabled'}>
+            解锁
+          </button>
+        </div>
+      `;
+    };
+
+    const normalCrops = locked.filter(([, c]) => !c.regrowDays);
+    const regrowCrops = locked.filter(([, c]) => c.regrowDays);
+
+    const section = (title, tip, list) => `
+      <h4 class="shop-subtitle">${title}</h4>
+      ${tip ? `<p class="section-tip small">${tip}</p>` : ''}
+      ${list.length
+        ? `<div class="card-list">${list.map(cropItem).join('')}</div>`
+        : `<div class="empty-state small"><div class="empty-state-text">均已解锁</div></div>`}
+    `;
 
     const canBuy = remaining > 0 && gold >= cost;
     const mysteryInfo = remaining > 0
@@ -423,7 +535,8 @@ class UIManager {
       <div class="content-section">
         <h3 class="content-section-title">🍀 种子</h3>
         <p class="section-tip">这里是购买种子的入口。花费金币永久解锁高级作物，解锁后即可在「计划项目 → 种植作物」中种植。</p>
-        ${unlockSection}
+        ${section('普通', '一次性作物，收获后需重新种植。', normalCrops)}
+        ${section('复种', '收获后会在固定天数自动重新结果，无需再次种植（季节结束时枯萎需手动铲除）。', regrowCrops)}
       </div>
       <div class="content-section">
         <h3 class="content-section-title">🎁 神秘种子</h3>
@@ -1110,6 +1223,7 @@ class UIManager {
     if (type === 'mysterySeed') return '<span class="inline-icon">🌱</span>';
     if (type === 'lottery') return '<span class="inline-icon">🎟️</span>';
     if (type === 'trophy') return '<span class="inline-icon">🏆</span>';
+    if (typeof type === 'string' && type.indexOf('product_') === 0) return '<span class="inline-icon">🥫</span>';
     return `<span class="inline-icon"><span class="crop-icon crop-mature crop-${type}"></span></span>`;
   }
 
@@ -1117,6 +1231,10 @@ class UIManager {
     if (type === 'mysterySeed') return '神秘种子';
     if (type === 'lottery') return '未兑奖的彩票';
     if (type === 'trophy') return '农场奖杯';
+    if (typeof type === 'string' && type.indexOf('product_') === 0) {
+      const cropType = type.slice('product_'.length);
+      return game.getProductName(cropType);
+    }
     return (CROP_TYPES[type] || {}).name || type;
   }
 
@@ -1756,6 +1874,18 @@ class UIManager {
         return `🎁 购买了神秘种子，已进入仓库`;
       case 'mystery_harvest':
         return `🌱 神秘种子收获了${logItem.data.outcome === 'lottery' ? '未兑奖的彩票' : logItem.data.outcome === 'trophy' ? '农场奖杯' : `随机作物（${CROP_TYPES[logItem.data.cropType] ? CROP_TYPES[logItem.data.cropType].name : '作物'}）`}`;
+      case 'new_area_unlock':
+        return `🌄 解锁了神秘新区`;
+      case 'new_area_build':
+        return `🏗️ 建造了${logItem.data.buildingName}`;
+      case 'workshop_maintenance':
+        return `🏭 缴纳加工坊维护费 ${logItem.data.fee} 金币`;
+      case 'workshop_disabled':
+        return `⚠️ 加工坊因欠维护费（${logItem.data.fee}）已停用，需手动补缴`;
+      case 'workshop_done':
+        return `🥫 加工完成：${logItem.data.amount} 份${logItem.data.productName}`;
+      case 'wheel':
+        return `🎡 轮盘：押${logItem.data.color}，${logItem.data.win ? `中${logItem.data.outcome}赢得 ${logItem.data.payout} 金币` : `开${logItem.data.outcome}失去 ${logItem.data.bet} 金币`}`;
       case 'letter':
         return `收到${logItem.data.from}的信件`;
       case 'coop_income':
@@ -1797,6 +1927,331 @@ class UIManager {
     if (this.elements.flipButton) {
       this.elements.flipButton.disabled = isFlipping;
       this.elements.flipButton.classList.toggle('flipping', isFlipping);
+    }
+  }
+
+  // ===== 新区 / 加工坊 / 娱乐厅 =====
+
+  openNewArea() {
+    const overlay = document.getElementById('new-area-overlay');
+    if (overlay) overlay.classList.remove('hidden');
+    this.renderNewArea();
+  }
+
+  closeNewArea() {
+    const overlay = document.getElementById('new-area-overlay');
+    if (overlay) overlay.classList.add('hidden');
+  }
+
+  renderNewArea() {
+    const content = document.getElementById('new-area-content');
+    if (!content) return;
+    const na = game.data.newArea;
+
+    if (na.unlocked) {
+      this.closeNewArea();
+      this.switchScene('town');
+      return;
+    }
+
+    const cost = CONFIG.NEW_AREA_UNLOCK_COST || 45000;
+    const month = Math.floor((game.data.day - 1) / 30);
+    const lockedByMonth = month < 1;
+    const canAfford = game.data.gold >= cost;
+    let tip = '农场另一侧还有一片未被开发的土地，传闻里面藏着不少有用的东西。支付 ' + cost + ' 金币即可开通这片区域。';
+    if (lockedByMonth) {
+      tip = '这片土地要到第二个月（第 31 天起）才会对外开放，届时支付 ' + cost + ' 金币即可开通。';
+    }
+    content.innerHTML = `
+      <div class="na-locked">
+        <h2>🌄 神秘新区</h2>
+        <p class="section-tip">${tip}</p>
+        <button class="btn btn-primary btn-unlock-area" ${canAfford && !lockedByMonth ? '' : 'disabled'}>解锁新区（${cost} 金币）</button>
+      </div>`;
+    content.querySelector('.btn-unlock-area')?.addEventListener('click', () => {
+      const r = game.unlockNewArea();
+      if (r.success) {
+        this.showToast('新区已解锁！');
+        this.closeNewArea();
+        this.switchScene('town');
+      } else {
+        this.showToast(r.message, 'error');
+      }
+    });
+  }
+
+  renderNewAreaBuildingCard(type, building) {
+    const def = NEW_AREA_BUILDINGS[type];
+    if (!building || building.status !== 'built') {
+      const canAfford = game.data.gold >= def.buildCost;
+      return `
+        <div class="na-building-card locked">
+          <div class="na-building-icon">${type === 'workshop' ? '🏭' : '🎡'}</div>
+          <h3>${def.name}</h3>
+          <p class="na-building-desc">${def.description}</p>
+          <button class="btn btn-primary btn-build-na" data-na-type="${type}" ${canAfford ? '' : 'disabled'}>建造（${def.buildCost} 金币）</button>
+        </div>`;
+    }
+
+    if (type === 'workshop') return this.renderWorkshopCard(building);
+    if (type === 'arcade') return this.renderArcadeCard(building);
+    return '';
+  }
+
+  renderWorkshopCard(building) {
+    const maintenance = CONFIG.WORKSHOP_MAINTENANCE || 2500;
+    let statusHtml;
+    if (building.pendingMaintenance) {
+      statusHtml = `<div class="na-status disabled">⚠️ 已停用（欠维护费 ${maintenance} 金币）<button class="btn btn-sm btn-pay-maint">补缴维护费</button></div>`;
+    } else {
+      statusHtml = `<div class="na-status active">✅ 运行中（每月自动扣 ${maintenance} 金币维护费）</div>`;
+    }
+
+    const processable = (game.data.warehouse || [])
+      .filter(w => CROP_TYPES[w.type] && !CROP_TYPES[w.type].animalProduct)
+      .map(w => `
+        <div class="ws-row">
+          <span class="ws-name">${this.getItemName(w.type)} × ${w.count}</span>
+          <input type="number" class="ws-amount" data-ws-type="${w.type}" value="1" min="1" max="${w.count}">
+          <button class="btn btn-sm btn-process" data-ws-type="${w.type}">加工</button>
+        </div>`).join('');
+
+    const jobs = (game.data.newArea.workshopJobs || []).map(job => {
+      const remain = Math.max(0, job.finishDay - game.data.day);
+      return `<div class="ws-job">⏳ ${job.amount} 份${game.getProductName(job.cropType)}，还有 ${remain} 天</div>`;
+    }).join('');
+
+    return `
+      <div class="na-building-card">
+        <div class="na-building-icon">🏭</div>
+        <h3>加工坊 Lv${building.level}</h3>
+        ${statusHtml}
+        <div class="ws-section">
+          <div class="ws-title">加工（消耗仓库作物 → 高价制品）</div>
+          ${processable || '<div class="empty-state small">仓库中没有可加工的作物</div>'}
+        </div>
+        <div class="ws-jobs">${jobs}</div>
+      </div>`;
+  }
+
+  renderArcadeCard(building) {
+    return `
+      <div class="na-building-card">
+        <div class="na-building-icon">🎡</div>
+        <h3>娱乐厅 Lv${building.level}</h3>
+        <div class="ws-title">🎰 幸运轮盘</div>
+        <div class="wheel">
+          <div class="wheel-disc" id="wheel-disc" style="background:${this.getWheelGradient(this.getWheelSegments())}"></div>
+          <div class="wheel-pointer"></div>
+        </div>
+        <div class="wheel-controls">
+          <div class="bet-types">
+            <button class="btn btn-sm bet-type active" data-bet="custom">自定义</button>
+            <button class="btn btn-sm bet-type" data-bet="half">50%存款</button>
+            <button class="btn btn-sm bet-type" data-bet="allin">全压</button>
+          </div>
+          <input type="number" id="wheel-custom" class="wheel-custom" placeholder="自定义金额" min="1">
+          <div class="color-choices">
+            <button class="btn btn-sm color-choice active" data-color="red">红</button>
+            <button class="btn btn-sm color-choice" data-color="black">黑</button>
+            <button class="btn btn-sm color-choice" data-color="green">绿</button>
+          </div>
+          <button class="btn btn-primary" id="wheel-spin">转动轮盘</button>
+          <div class="wheel-result" id="wheel-result"></div>
+          <div class="wheel-tip">红/黑中奖翻 2 倍，绿色翻 20 倍，猜错本金全无。全压？哼哼…</div>
+        </div>
+      </div>`;
+  }
+
+  bindNewAreaEvents(root) {
+    if (!root) root = document.getElementById('new-area-content');
+    if (!root) return;
+
+    const rerender = () => {
+      if (root.id === 'new-area-content') this.renderNewArea();
+      else this.renderTownTab();
+      this.updateHeader();
+    };
+
+    root.querySelectorAll('.btn-build-na').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const r = game.buildNewAreaBuilding(btn.dataset.naType);
+        if (r.success) {
+          this.showToast(`已建造${r.name}`);
+          rerender();
+        } else {
+          this.showToast(r.message, 'error');
+        }
+      });
+    });
+
+    root.querySelector('.btn-pay-maint')?.addEventListener('click', () => {
+      const r = game.payWorkshopMaintenance();
+      if (r.success) {
+        this.showToast('已补缴维护费，加工坊恢复运行');
+        rerender();
+      } else {
+        this.showToast(r.message, 'error');
+      }
+    });
+
+    root.querySelectorAll('.btn-process').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const type = btn.dataset.wsType;
+        const input = root.querySelector(`.ws-amount[data-ws-type="${type}"]`);
+        const amount = input ? parseInt(input.value) : 1;
+        const r = game.startProcessing(type, amount);
+        if (r.success) {
+          this.showToast(r.message);
+          rerender();
+        } else {
+          this.showToast(r.message, 'error');
+        }
+      });
+    });
+
+    // 轮盘
+    let selectedBet = 'custom';
+    let selectedColor = 'red';
+    root.querySelectorAll('.bet-type').forEach(b => {
+      b.addEventListener('click', () => {
+        root.querySelectorAll('.bet-type').forEach(x => x.classList.remove('active'));
+        b.classList.add('active');
+        selectedBet = b.dataset.bet;
+        const custom = root.querySelector('#wheel-custom');
+        if (custom) custom.style.display = selectedBet === 'custom' ? '' : 'none';
+      });
+    });
+    root.querySelectorAll('.color-choice').forEach(b => {
+      b.addEventListener('click', () => {
+        root.querySelectorAll('.color-choice').forEach(x => x.classList.remove('active'));
+        b.classList.add('active');
+        selectedColor = b.dataset.color;
+      });
+    });
+    const customInput = root.querySelector('#wheel-custom');
+    if (customInput) customInput.style.display = '';
+
+    root.querySelector('#wheel-spin')?.addEventListener('click', () => {
+      const custom = root.querySelector('#wheel-custom')?.value;
+      const r = game.spinWheel(selectedBet, selectedColor, custom);
+      if (!r.success) {
+        this.showToast(r.message, 'error');
+        return;
+      }
+      const disc = root.querySelector('#wheel-disc');
+      const segs = this.getWheelSegments();
+      const total = segs.length;
+      const seg = 360 / total;
+      const idxs = [];
+      segs.forEach((c, i) => { if (c === r.outcome) idxs.push(i); });
+      const pick = idxs[Math.floor(Math.random() * idxs.length)];
+      const targetDeg = (pick + 0.5) * seg;
+      const desiredMod = ((-targetDeg) % 360 + 360) % 360;
+      const curr = parseFloat(disc ? disc.dataset.rot || '0' : '0');
+      const currMod = ((curr % 360) + 360) % 360;
+      let delta = desiredMod - currMod;
+      if (delta < 0) delta += 360;
+      const newRot = curr + 360 * 5 + delta;
+      if (disc) {
+        disc.dataset.rot = newRot;
+        disc.style.transition = 'transform 3s cubic-bezier(0.15, 0.6, 0.2, 0.95)';
+        disc.style.transform = `rotate(${newRot}deg)`;
+      }
+      const spinBtn = root.querySelector('#wheel-spin');
+      if (spinBtn) spinBtn.disabled = true;
+      setTimeout(() => {
+        const res = root.querySelector('#wheel-result');
+        if (res) {
+          res.textContent = r.message;
+          res.className = 'wheel-result ' + (r.win ? 'win' : 'lose');
+        }
+        this.showToast(r.message, r.win ? '' : 'error');
+        if (spinBtn) spinBtn.disabled = false;
+        this.updateHeader();
+      }, 3000);
+    });
+  }
+
+  getWheelSegments() {
+    const W = CONFIG.WHEEL;
+    const total = (W.green || 1) + (W.red || 0) + (W.black || 0);
+    const segs = new Array(total);
+    segs[0] = 'green';
+    for (let i = 1; i < total; i++) {
+      segs[i] = (i % 2 === 1) ? 'red' : 'black';
+    }
+    return segs;
+  }
+
+  getWheelGradient(segs) {
+    const n = segs.length;
+    const seg = 100 / n;
+    return 'conic-gradient(' + segs.map((c, i) => {
+      const color = c === 'green' ? '#2ecc71' : c === 'red' ? '#e74c3c' : '#22303f';
+      return `${color} ${(i * seg).toFixed(3)}% ${((i + 1) * seg).toFixed(3)}%`;
+    }).join(', ') + ')';
+  }
+
+  switchScene(scene) {
+    this.currentScene = scene;
+    const farm = document.getElementById('notebook-farm');
+    const town = document.getElementById('notebook-town');
+    if (scene === 'town') {
+      if (farm) farm.classList.add('hidden');
+      if (town) {
+        town.classList.remove('hidden');
+        town.classList.remove('scening-left', 'scening-right');
+        void town.offsetWidth;
+        town.classList.add('scening-right');
+      }
+      this.currentTownTab = 'workshop';
+    } else {
+      if (town) town.classList.add('hidden');
+      if (farm) {
+        farm.classList.remove('hidden');
+        farm.classList.remove('scening-left', 'scening-right');
+        void farm.offsetWidth;
+        farm.classList.add('scening-left');
+      }
+    }
+    this.updateSceneButton();
+    this.switchTab(scene === 'town' ? this.currentTownTab : this.currentTab);
+
+    const animatedEl = scene === 'town' ? town : farm;
+    if (animatedEl) {
+      const cleanup = () => {
+        animatedEl.classList.remove('scening-left', 'scening-right');
+        animatedEl.removeEventListener('animationend', cleanup);
+      };
+      animatedEl.addEventListener('animationend', cleanup);
+    }
+  }
+
+  updateSceneButton() {
+    const btn = document.getElementById('scene-toggle');
+    if (!btn) return;
+    if (this.currentScene === 'town') {
+      btn.textContent = '上一区域';
+      btn.classList.remove('pos-right');
+      btn.classList.add('pos-left');
+    } else {
+      btn.classList.remove('pos-left');
+      btn.classList.add('pos-right');
+      btn.textContent = game.data.newArea.unlocked ? '下一区域' : '新区';
+    }
+  }
+
+  renderTownTab() {
+    const tab = this.currentTownTab;
+    const container = document.getElementById('tab-' + tab);
+    if (!container) return;
+    if (tab === 'workshop') {
+      container.innerHTML = this.renderNewAreaBuildingCard('workshop', game.getNewAreaBuilding('workshop'));
+      this.bindNewAreaEvents(container);
+    } else if (tab === 'arcade') {
+      container.innerHTML = this.renderNewAreaBuildingCard('arcade', game.getNewAreaBuilding('arcade'));
+      this.bindNewAreaEvents(container);
     }
   }
 

@@ -108,6 +108,13 @@
   border-radius: 2px;
 }
 
+.shop-subtitle {
+  font-family: var(--font-heading);
+  font-size: 1.02rem;
+  color: var(--ink-color);
+  margin: 22px 0 6px;
+}
+
 .card-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));

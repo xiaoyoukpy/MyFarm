@@ -74,19 +74,20 @@
     
     ui.setFlippingState(true);
     
-    const notebook = document.querySelector('.notebook-game');
-    const content = document.querySelector('.notebook-content');
-    
+    const notebook = document.querySelector('.notebook:not(.hidden)');
+    const content = document.querySelector('.notebook:not(.hidden) .tab-content.active');
+
+    notebook?.classList.remove('scening-left', 'scening-right');
     notebook?.classList.add('flipping');
     content?.classList.add('flipping');
-    
+
     await game.flipPage((stage) => {
       switch (stage) {
         case 'dayAdvanced':
           ui.showToast(`第 ${game.data.day} 天开始了`);
           break;
         case 'complete':
-          notebook?.classList.remove('flipping');
+          notebook?.classList.remove('flipping', 'scening-left', 'scening-right');
           content?.classList.remove('flipping');
           ui.setFlippingState(false);
           ui.render();

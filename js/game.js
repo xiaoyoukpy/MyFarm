@@ -42,6 +42,7 @@ class Game {
       coop: { chickens: 0 },
       shop: { mysteryBought: 0, mysteryMonth: 0 },
       obtained: { lottery: false, trophy: false },
+      newArea: { unlocked: false, buildings: [], workshopJobs: [] },
       dailyLogs: []
     };
     this.pendingCrops = [];
@@ -127,6 +128,15 @@ class Game {
       }
       if (typeof this.data.obtained !== 'object' || this.data.obtained === null) {
         this.data.obtained = { lottery: false, trophy: false };
+      }
+      if (typeof this.data.newArea !== 'object' || this.data.newArea === null) {
+        this.data.newArea = { unlocked: false, buildings: [], workshopJobs: [] };
+      }
+      if (!Array.isArray(this.data.newArea.buildings)) {
+        this.data.newArea.buildings = [];
+      }
+      if (!Array.isArray(this.data.newArea.workshopJobs)) {
+        this.data.newArea.workshopJobs = [];
       }
       this.migrateInitialFields();
       this.triggerDayLetters();
@@ -286,6 +296,10 @@ class Game {
     if (onProgress) onProgress('dayAdvanced');
     await this.delay(100);
 
+    if (Math.floor((this.data.day - 2) / 30) !== Math.floor((this.data.day - 1) / 30)) {
+      this.processWorkshopMaintenance();
+    }
+
     this.plantPendingCrops();
     if (onProgress) onProgress('cropsPlanted');
     await this.delay(100);
@@ -303,6 +317,7 @@ class Game {
     await this.delay(100);
 
     this.autoHarvest();
+    this.processWorkshopJobs();
 
     this.generateWeather();
     if (onProgress) onProgress('weatherGenerated');
@@ -348,11 +363,15 @@ class Game {
       this.flipLogCount = 0;
 
       this.data.day += 1;
+      if (Math.floor((this.data.day - 2) / 30) !== Math.floor((this.data.day - 1) / 30)) {
+        this.processWorkshopMaintenance();
+      }
       this.plantPendingCrops();
       this.executePlans();
       this.collectEggs();
       this.growCrops();
       this.autoHarvest();
+      this.processWorkshopJobs();
       this.generateWeather();
       this.triggerSpecialEvents();
       this.triggerLetters();
@@ -822,6 +841,243 @@ class Game {
     return { success: true, name: crop.name };
   }
 
+  // ===== 新区 / 加工坊 / 娱乐厅 =====
+
+  getNewAreaBuilding(type) {
+    return this.data.newArea.buildings.find(b => b.type === type);
+  }
+
+  isNewAreaBuildingBuilt(type) {
+    const b = this.getNewAreaBuilding(type);
+    return !!(b && b.status === 'built');
+  }
+
+  unlockNewArea() {
+    const cost = CONFIG.NEW_AREA_UNLOCK_COST || 45000;
+    if (this.data.newArea.unlocked) {
+      return { success: false, message: '新区已解锁' };
+    }
+    const month = Math.floor((this.data.day - 1) / 30);
+    if (month < 1) {
+      return { success: false, message: '需在第二个月（第 31 天起）才能开通新区' };
+    }
+    if ((this.data.gold || 0) < cost) {
+      return { success: false, message: '金币不足' };
+    }
+    this.data.gold -= cost;
+    this.data.newArea.unlocked = true;
+    this.addLog('new_area_unlock', {});
+    this.save();
+    return { success: true };
+  }
+
+  buildNewAreaBuilding(type) {
+    const def = NEW_AREA_BUILDINGS[type];
+    if (!def) {
+      return { success: false, message: '未知建筑' };
+    }
+    if (this.isNewAreaBuildingBuilt(type)) {
+      return { success: false, message: '已经建造过了' };
+    }
+    if (!this.data.newArea.unlocked) {
+      return { success: false, message: '请先解锁新区' };
+    }
+    if ((this.data.gold || 0) < def.buildCost) {
+      return { success: false, message: '金币不足' };
+    }
+    this.data.gold -= def.buildCost;
+    this.data.newArea.buildings.push({
+      id: type + '_' + Date.now(),
+      name: def.name,
+      type: type,
+      level: 1,
+      status: 'built',
+      buildDate: this.data.day,
+      active: true,
+      pendingMaintenance: false
+    });
+    this.addLog('new_area_build', { buildingName: def.name });
+    this.save();
+    return { success: true, name: def.name };
+  }
+
+  getProductType(cropType) {
+    return 'product_' + cropType;
+  }
+
+  getProductName(cropType) {
+    return PRODUCT_RECIPES[cropType] || ((CROP_TYPES[cropType] && CROP_TYPES[cropType].name) || cropType) + '制品';
+  }
+
+  getProductValue(cropType) {
+    const base = CROP_TYPES[cropType] ? CROP_TYPES[cropType].harvestValue : 0;
+    const workshop = this.getNewAreaBuilding('workshop');
+    const levelBonus = workshop ? (1 + (workshop.level - 1) * 0.15) : 1;
+    return Math.round(base * (CONFIG.PRODUCT_MULTIPLIER || 2.5) * levelBonus);
+  }
+
+  startProcessing(cropType, amount) {
+    amount = parseInt(amount) || 0;
+    if (amount < 1) {
+      return { success: false, message: '数量无效' };
+    }
+    const workshop = this.getNewAreaBuilding('workshop');
+    if (!workshop || workshop.status !== 'built') {
+      return { success: false, message: '加工坊尚未建造' };
+    }
+    if (workshop.pendingMaintenance) {
+      return { success: false, message: '加工坊已停用，请先补缴维护费' };
+    }
+    if (!CROP_TYPES[cropType] || CROP_TYPES[cropType].animalProduct) {
+      return { success: false, message: '该物品无法加工' };
+    }
+    const stock = this.getWarehouseCount(cropType);
+    if (stock < amount) {
+      return { success: false, message: `仓库中${this.getItemDisplayName(cropType)}不足（需 ${amount}，现有 ${stock}）` };
+    }
+    // 扣除原料
+    const entry = this.data.warehouse.find(w => w.type === cropType);
+    entry.count -= amount;
+    if (entry.count <= 0) {
+      this.data.warehouse = this.data.warehouse.filter(w => w.type !== cropType);
+    }
+    const days = CONFIG.WORKSHOP_PROCESS_DAYS || 2;
+    this.data.newArea.workshopJobs.push({
+      id: 'job_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+      cropType: cropType,
+      amount: amount,
+      finishDay: this.data.day + days
+    });
+    this.save();
+    return { success: true, message: `已开始加工 ${amount} 份${this.getProductName(cropType)}，约 ${days} 天后完成` };
+  }
+
+  processWorkshopJobs() {
+    if (!this.data.newArea.workshopJobs || this.data.newArea.workshopJobs.length === 0) return;
+    const remaining = [];
+    let produced = 0;
+    this.data.newArea.workshopJobs.forEach(job => {
+      if (this.data.day >= job.finishDay) {
+        this.addToWarehouse(this.getProductType(job.cropType), job.amount);
+        produced += job.amount;
+        this.addLog('workshop_done', { productName: this.getProductName(job.cropType), amount: job.amount });
+      } else {
+        remaining.push(job);
+      }
+    });
+    this.data.newArea.workshopJobs = remaining;
+    if (produced > 0) {
+      this.save();
+    }
+  }
+
+  processWorkshopMaintenance() {
+    const workshop = this.getNewAreaBuilding('workshop');
+    if (!workshop || workshop.status !== 'built') return;
+    const fee = CONFIG.WORKSHOP_MAINTENANCE || 2500;
+    if (workshop.pendingMaintenance) return; // 等待手动补缴
+    if ((this.data.gold || 0) >= fee) {
+      this.data.gold -= fee;
+      this.addLog('workshop_maintenance', { fee: fee });
+    } else {
+      workshop.active = false;
+      workshop.pendingMaintenance = true;
+      this.addLog('workshop_disabled', { fee: fee });
+    }
+  }
+
+  payWorkshopMaintenance() {
+    const workshop = this.getNewAreaBuilding('workshop');
+    if (!workshop || !workshop.pendingMaintenance) {
+      return { success: false, message: '当前无需补缴维护费' };
+    }
+    const fee = CONFIG.WORKSHOP_MAINTENANCE || 2500;
+    if ((this.data.gold || 0) < fee) {
+      return { success: false, message: '金币不足，无法补缴' };
+    }
+    this.data.gold -= fee;
+    workshop.active = true;
+    workshop.pendingMaintenance = false;
+    this.addLog('workshop_maintenance', { fee: fee });
+    this.save();
+    return { success: true };
+  }
+
+  spinWheel(betType, color, customAmount) {
+    const wheel = CONFIG.WHEEL || { green: 1, red: 18, black: 18, redPayout: 2, greenPayout: 20 };
+    const total = wheel.green + wheel.red + wheel.black;
+    if (!this.isNewAreaBuildingBuilt('arcade')) {
+      return { success: false, message: '娱乐厅尚未建造' };
+    }
+    if (!['red', 'black', 'green'].includes(color)) {
+      return { success: false, message: '请选择颜色' };
+    }
+
+    let bet = 0;
+    const gold = this.data.gold || 0;
+    if (betType === 'allin') {
+      bet = gold;
+    } else if (betType === 'half') {
+      bet = Math.floor(gold / 2);
+    } else {
+      bet = parseInt(customAmount) || 0;
+    }
+    bet = Math.floor(bet);
+    if (bet <= 0) {
+      return { success: false, message: '下注金额无效' };
+    }
+    if (bet > gold) {
+      return { success: false, message: '金币不足' };
+    }
+
+    this.data.gold = gold - bet;
+
+    const roll = Math.random() * total;
+    let outcomeColor;
+    if (roll < wheel.green) {
+      outcomeColor = 'green';
+    } else if (roll < wheel.green + wheel.red) {
+      outcomeColor = 'red';
+    } else {
+      outcomeColor = 'black';
+    }
+
+    let payout = 0;
+    let win = false;
+    if (outcomeColor === color) {
+      win = true;
+      if (color === 'green') {
+        payout = bet * (wheel.greenPayout || 20);
+      } else {
+        payout = bet * (wheel.redPayout || 2);
+      }
+      this.data.gold = (this.data.gold || 0) + payout;
+    }
+
+    this.addLog('wheel', {
+      color: color,
+      outcome: outcomeColor,
+      bet: bet,
+      payout: payout,
+      win: win,
+      allIn: (betType === 'allin')
+    });
+
+    this.save();
+    const colorName = { red: '红', black: '黑', green: '绿' }[outcomeColor];
+    const message = win
+      ? `轮盘转出${colorName}色，押${color}命中！投入 ${bet} 金币，赢得 ${payout} 金币`
+      : `轮盘转出${colorName}色，未命中。投入 ${bet} 金币，损失 ${bet} 金币`;
+    return {
+      success: true,
+      win: win,
+      outcome: outcomeColor,
+      bet: bet,
+      payout: payout,
+      message: message
+    };
+  }
+
   harvestCrop(cropId) {
     const cropIndex = this.data.farm.crops.findIndex(c => c.id === cropId);
     if (cropIndex === -1) return null;
@@ -1010,6 +1266,11 @@ class Game {
       return SPECIAL_ITEM_VALUES[type];
     }
 
+    if (typeof type === 'string' && type.indexOf('product_') === 0) {
+      const cropType = type.slice('product_'.length);
+      return this.getProductValue(cropType);
+    }
+
     const cropType = CROP_TYPES[type];
     if (!cropType) return 0;
 
@@ -1039,6 +1300,9 @@ class Game {
     if (type === 'mysterySeed') return '神秘种子';
     if (type === 'lottery') return '未兑奖的彩票';
     if (type === 'trophy') return '农场奖杯';
+    if (typeof type === 'string' && type.indexOf('product_') === 0) {
+      return this.getProductName(type.slice('product_'.length));
+    }
     const cropType = CROP_TYPES[type];
     return cropType ? cropType.name : type;
   }
@@ -1412,6 +1676,24 @@ class Game {
             break;
           case 'mystery_harvest':
             summary.push(`🌱 神秘种子收获了${log.data.outcome === 'lottery' ? '未兑奖的彩票' : log.data.outcome === 'trophy' ? '农场奖杯' : `随机作物（${CROP_TYPES[log.data.cropType] ? CROP_TYPES[log.data.cropType].name : '作物'}）`}`);
+            break;
+          case 'new_area_unlock':
+            summary.push(`🌄 解锁了神秘新区`);
+            break;
+          case 'new_area_build':
+            summary.push(`🏗️ 建造了${log.data.buildingName}`);
+            break;
+          case 'workshop_maintenance':
+            summary.push(`🏭 缴纳加工坊维护费 ${log.data.fee} 金币`);
+            break;
+          case 'workshop_disabled':
+            summary.push(`⚠️ 加工坊因欠维护费停用，需手动补缴`);
+            break;
+          case 'workshop_done':
+            summary.push(`🥫 加工完成：${log.data.amount} 份${log.data.productName}`);
+            break;
+          case 'wheel':
+            summary.push(`🎡 轮盘押${log.data.color}，${log.data.win ? `中${log.data.outcome}赢 ${log.data.payout} 金币` : `开${log.data.outcome}输 ${log.data.bet} 金币`}`);
             break;
           case 'letter':
             summary.push(`收到${log.data.from}的信件：${log.data.title}`);

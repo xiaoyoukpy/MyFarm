@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="css/components.css">
   <link rel="stylesheet" href="css/animations.css">
   <link rel="stylesheet" href="css/menu.css">
+  <link rel="stylesheet" href="css/responsive.css">
 </head>
 <body>
   <div id="app">
@@ -48,12 +49,12 @@
     </div>
 
     <div id="game-screen" class="game-screen hidden">
-      <div class="notebook notebook-game">
+      <div class="notebook notebook-game" id="notebook-farm">
         <div class="tape tape-top"></div>
         
         <header class="notebook-header">
           <div class="header-left">
-            <button id="menu-button" class="btn btn-icon" aria-label="返回主菜单">
+            <button id="menu-button" class="btn btn-icon btn-menu-trigger" aria-label="返回主菜单">
               <span class="btn-icon-text">☰</span>
             </button>
             <button id="debug-button" class="btn btn-icon hidden" aria-label="调试工具">
@@ -71,7 +72,7 @@
         </header>
         
         <main class="notebook-body">
-          <nav class="notebook-sidebar">
+          <nav class="notebook-sidebar" id="farm-sidebar">
             <button class="nav-item active" data-tab="letters" aria-label="通讯">
               <span class="nav-item-label">
                 <span class="nav-item-icon">📬</span>
@@ -130,7 +131,7 @@
             </button>
           </nav>
           
-          <section class="notebook-content">
+          <section class="notebook-content" id="farm-content">
             <div id="tab-letters" class="tab-content active">
             </div>
 
@@ -165,10 +166,90 @@
             重置存档
           </button>
         </footer>
-        
+
         <div class="page-corner"></div>
         <div class="stain stain-1"></div>
         <div class="stain stain-2"></div>
+      </div>
+
+      <div class="notebook notebook-town hidden" id="notebook-town">
+        <div class="tape tape-top"></div>
+        
+        <header class="notebook-header">
+          <div class="header-left">
+            <button id="menu-button-town" class="btn btn-icon btn-menu-trigger" aria-label="返回主菜单">
+              <span class="btn-icon-text">☰</span>
+            </button>
+            <h1 class="notebook-title">小镇</h1>
+          </div>
+          <div class="notebook-meta">
+            <span id="day-display-town">第 1 天</span>
+            <span>
+              <span class="icon-gold"></span>
+              <span id="gold-display-town">100</span>
+            </span>
+          </div>
+        </header>
+        
+        <main class="notebook-body">
+          <nav class="notebook-sidebar" id="town-sidebar">
+            <button class="nav-item active" data-tab="workshop" aria-label="加工坊">
+              <span class="nav-item-label">
+                <span class="nav-item-icon">🏭</span>
+                <span>加工坊</span>
+              </span>
+            </button>
+            <button class="nav-item" data-tab="arcade" aria-label="娱乐厅">
+              <span class="nav-item-label">
+                <span class="nav-item-icon">🎡</span>
+                <span>娱乐厅</span>
+              </span>
+            </button>
+          </nav>
+          
+          <section class="notebook-content" id="town-content">
+            <div id="tab-workshop" class="tab-content active">
+            </div>
+            <div id="tab-arcade" class="tab-content">
+            </div>
+          </section>
+        </main>
+
+        <footer class="notebook-footer">
+          <button id="flip-button-town" class="btn btn-flip" aria-label="翻到下一页">
+            📖 翻到下一页
+          </button>
+          <button id="reset-button-town" class="btn btn-sm btn-footer" aria-label="重置游戏">
+            重置存档
+          </button>
+        </footer>
+      </div>
+
+      <button id="scene-toggle" class="scene-toggle pos-right">新区</button>
+
+      <button id="sponsor-btn" class="sponsor-btn" aria-label="赞助">
+        <span class="sponsor-icon">❤️</span>
+        <span class="sponsor-text">赞助</span>
+      </button>
+    </div>
+
+    <div id="new-area-overlay" class="overlay hidden">
+      <div class="new-area-panel">
+        <div class="new-area-head">
+          <h2>🌄 神秘新区</h2>
+          <button id="new-area-close" class="modal-close" aria-label="关闭">✕</button>
+        </div>
+        <div id="new-area-content" class="new-area-content"></div>
+      </div>
+    </div>
+
+    <div id="sponsor-overlay" class="overlay hidden">
+      <div class="sponsor-panel">
+        <div class="sponsor-head">
+          <h2>❤️ 赞助农场</h2>
+          <button id="sponsor-close" class="modal-close" aria-label="关闭">✕</button>
+        </div>
+        <div id="sponsor-body" class="sponsor-body"></div>
       </div>
     </div>
   </div>

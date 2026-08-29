@@ -25,6 +25,14 @@ const CONFIG = {
   MYSTERY_SEED_GROWTH_DAYS: 5,
   MAX_BUILDING_LEVEL: 3,
   SEASON_DAYS: 30,
+
+  NEW_AREA_UNLOCK_COST: 45000,
+  WORKSHOP_BUILD_COST: 20000,
+  ARCADE_BUILD_COST: 15000,
+  WORKSHOP_MAINTENANCE: 2500,
+  WORKSHOP_PROCESS_DAYS: 2,
+  PRODUCT_MULTIPLIER: 2.5,
+  WHEEL: { green: 1, red: 18, black: 18, redPayout: 2, greenPayout: 20 },
   PERFECT_SEASON_INCOME: 2500,
   
   MERCHANT_ORDER_CHANCE: 0.25,
@@ -38,7 +46,17 @@ const CONFIG = {
   CHICKEN_PRICE: 50,
   COOP_CAPACITY_PER: 5,
   
-  DEBUG_MODE: false
+  DEBUG_MODE: false,
+
+  SPONSOR: {
+    wechatId: '',
+    wechatUrl: '',
+    tiers: [
+      { price: 2, gold: 2000 },
+      { price: 5, gold: 5000 },
+      { price: 10, gold: 12000 }
+    ]
+  }
 };
 
 const WEATHER_TYPES = {
@@ -142,6 +160,13 @@ const CROP_TYPES = {
     seedCost: 12,
     unlockCost: 90
   },
+  apple: {
+    name: '苹果',
+    daysToHarvest: 5,
+    harvestValue: 45,
+    seedCost: 20,
+    unlockCost: 180
+  },
   strawberry: {
     name: '草莓',
     daysToHarvest: 4,
@@ -165,6 +190,14 @@ const CROP_TYPES = {
     seedCost: 50,
     regrowDays: 2,
     unlockCost: 250
+  },
+  tomato: {
+    name: '番茄',
+    daysToHarvest: 5,
+    harvestValue: 28,
+    seedCost: 45,
+    regrowDays: 2,
+    unlockCost: 300
   },
   egg: {
     name: '鸡蛋',
@@ -218,6 +251,38 @@ const BUILDING_TYPES = {
     maxCount: 1,
     description: '作物成熟后自动收割并存入仓库，无需手动操作。每座都生效，最多1座。'
   }
+};
+
+const NEW_AREA_BUILDINGS = {
+  workshop: {
+    name: '加工坊',
+    buildCost: 20000,
+    description: '把仓库里的作物加工成更高价的制品（例：苹果→苹果酱、土豆→土豆泥）。每月需缴纳 2500 金币机器维护费，欠费会停用，需手动补缴。',
+    maxLevel: 3
+  },
+  arcade: {
+    name: '娱乐厅',
+    buildCost: 15000,
+    description: '提供休闲娱乐设施。已开放项目：幸运轮盘——把金币押在红/黑/绿上，红黑中奖翻 2 倍、绿色翻 20 倍，猜错本金全无。',
+    maxLevel: 3
+  }
+};
+
+const PRODUCT_RECIPES = {
+  apple: '苹果酱',
+  potato: '土豆泥',
+  carrot: '胡萝卜泥',
+  tomato: '番茄酱',
+  corn: '玉米罐头',
+  cabbage: '酸菜',
+  pumpkin: '南瓜派',
+  watermelon: '西瓜汁',
+  eggplant: '茄子酱',
+  grape: '葡萄酒',
+  spinach: '菠菜汁',
+  strawberry: '草莓酱',
+  blueberry: '蓝莓酱',
+  pepper: '辣椒酱'
 };
 
 const INITIAL_CROPS = [
@@ -294,6 +359,17 @@ const INITIAL_LETTERS = [
     content: '亲爱的农场主，你已经经营了11天！\n\n回顾这段时间，你已经掌握了农场经营的要诀。继续努力，打造属于你的理想农场吧！\n\n记住：\n• 持续种植收获，积累财富\n• 升级建筑提升效率\n• 应对天气和事件的挑战',
     isRead: false,
     triggerDay: 11,
+    hasReply: false,
+    replyOptions: [],
+    isTriggered: false
+  },
+  {
+    id: 'letter_7',
+    from: '🏡 农场协会',
+    title: '农场另一侧的新区',
+    content: '农场主，你是否好奇农场另一头那片尚未开发的土地？\n\n那里被称为「小镇」，藏着更多营生的门路。等到第二个月（第 31 天起），你可以支付 45000 金币开通这片新区。\n\n开通后，右侧会多出「下一区域」的入口，点进去就能看到两座设施：\n• 🏭 加工坊：把仓库里的作物加工成更高价的制品（例：苹果→苹果酱、土豆→土豆泥），每月需缴纳维护费，欠费会停用\n• 🎡 娱乐厅：里面有幸运轮盘，押红/黑/绿碰碰运气\n\n先安心经营，攒够金币，第二个月再来探索吧！',
+    isRead: false,
+    triggerDay: 13,
     hasReply: false,
     replyOptions: [],
     isTriggered: false
