@@ -44,7 +44,9 @@ class Game {
       coop: { chickens: 0 },
       shop: { mysteryBought: 0, mysteryMonth: 0 },
       obtained: { lottery: false, trophy: false },
-      newArea: { unlocked: false, buildings: [], workshopJobs: [] },
+      newArea: { unlocked: false, buildings: [], workshopJobs: [], deliJobs: [] },
+      dock: { workers: 0, striking: false },
+      bank: { deposited: 0 },
       dailyLogs: []
     };
     this.pendingCrops = [];
@@ -145,6 +147,24 @@ class Game {
       }
       if (!Array.isArray(this.data.newArea.workshopJobs)) {
         this.data.newArea.workshopJobs = [];
+      }
+      if (!Array.isArray(this.data.newArea.deliJobs)) {
+        this.data.newArea.deliJobs = [];
+      }
+      if (typeof this.data.dock !== 'object' || this.data.dock === null) {
+        this.data.dock = { workers: 0, striking: false };
+      }
+      if (typeof this.data.dock.workers !== 'number') {
+        this.data.dock.workers = 0;
+      }
+      if (typeof this.data.dock.striking !== 'boolean') {
+        this.data.dock.striking = false;
+      }
+      if (typeof this.data.bank !== 'object' || this.data.bank === null) {
+        this.data.bank = { deposited: 0 };
+      }
+      if (typeof this.data.bank.deposited !== 'number') {
+        this.data.bank.deposited = 0;
       }
       this.migrateInitialFields();
       this.triggerDayLetters();
@@ -326,6 +346,9 @@ class Game {
 
     this.autoHarvest();
     this.processWorkshopJobs();
+    this.processDeliJobs();
+    this.collectFish();
+    this.processBankInterest();
 
     this.generateWeather();
     if (onProgress) onProgress('weatherGenerated');
@@ -380,6 +403,9 @@ class Game {
       this.growCrops();
       this.autoHarvest();
       this.processWorkshopJobs();
+      this.processDeliJobs();
+      this.collectFish();
+      this.processBankInterest();
       this.generateWeather();
       this.triggerSpecialEvents();
       this.triggerLetters();
@@ -890,6 +916,10 @@ class Game {
     if (this.isNewAreaBuildingBuilt(type)) {
       return { success: false, message: '已经建造过了' };
     }
+    if (def.requires && !this.isNewAreaBuildingBuilt(def.requires)) {
+      const reqName = (NEW_AREA_BUILDINGS[def.requires] && NEW_AREA_BUILDINGS[def.requires].name) || def.requires;
+      return { success: false, message: `需先建造${reqName}` };
+    }
     if (!this.data.newArea.unlocked) {
       return { success: false, message: '请先解锁新区' };
     }
@@ -959,6 +989,156 @@ class Game {
     return 'product_' + cropType;
   }
 
+  getFish(id) {
+    return FISH_TYPES[id] || null;
+  }
+
+  rollFish() {
+    const rare = FISH_TYPES.golden;
+    if (rare && Math.random() < (CONFIG.FISH_RARE_CHANCE || 0.01)) {
+      return rare;
+    }
+    const commons = Object.values(FISH_TYPES).filter(f => !f.rare);
+    return commons[Math.floor(Math.random() * commons.length)];
+  }
+
+  getDockWorkers() {
+    return (this.data.dock && typeof this.data.dock.workers === 'number') ? this.data.dock.workers : 0;
+  }
+
+  hireDockWorker() {
+    if (!this.isNewAreaBuildingBuilt('dock')) {
+      return { success: false, message: '请先建造码头' };
+    }
+    const max = CONFIG.DOCK_MAX_WORKERS || 10;
+    if (this.getDockWorkers() >= max) {
+      return { success: false, message: `工人数量已达上限（${max} 人）` };
+    }
+    this.data.dock.workers = this.getDockWorkers() + 1;
+    this.data.dock.striking = false;
+    this.save();
+    return { success: true, workers: this.getDockWorkers() };
+  }
+
+  fireDockWorker() {
+    if (this.getDockWorkers() <= 0) {
+      return { success: false, message: '当前没有工人' };
+    }
+    this.data.dock.workers = this.getDockWorkers() - 1;
+    this.save();
+    return { success: true, workers: this.getDockWorkers() };
+  }
+
+  collectFish() {
+    if (!this.isNewAreaBuildingBuilt('dock')) return;
+    const workers = this.getDockWorkers();
+    if (workers <= 0) return;
+
+    const wage = CONFIG.DOCK_WORKER_WAGE || 400;
+    const total = wage * workers;
+    if ((this.data.gold || 0) < total) {
+      this.data.dock.striking = true;
+      this.addLog('fish_strike', { workers: workers, need: total });
+      return;
+    }
+
+    this.data.gold -= total;
+    this.data.dock.striking = false;
+
+    let caught = 0;
+    const catches = workers * 2;
+    for (let i = 0; i < catches; i++) {
+      const fish = this.rollFish();
+      this.addToWarehouse('fish_raw_' + fish.id, 1);
+      caught += 1;
+    }
+    if (caught > 0) {
+      this.addLog('fish_catch', { count: caught });
+    }
+  }
+
+  startCooking(fishId, amount) {
+    amount = parseInt(amount) || 0;
+    if (amount < 1) return { success: false, message: '数量无效' };
+    if (!this.isNewAreaBuildingBuilt('deli')) {
+      return { success: false, message: '熟食间尚未建造' };
+    }
+    const inputType = 'fish_descaled_' + fishId;
+    const stock = this.getWarehouseCount(inputType);
+    if (stock < amount) {
+      return { success: false, message: `仓库中去磷鱼（${this.getFish(fishId) ? this.getFish(fishId).name : fishId}）不足（需 ${amount}，现有 ${stock}）` };
+    }
+    const entry = this.data.warehouse.find(w => w.type === inputType);
+    entry.count -= amount;
+    if (entry.count <= 0) {
+      this.data.warehouse = this.data.warehouse.filter(w => w.type !== inputType);
+    }
+    const days = CONFIG.FISH_COOK_DAYS || 1;
+    this.data.newArea.deliJobs.push({
+      id: 'cook_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+      fishId: fishId,
+      amount: amount,
+      finishDay: this.data.day + days
+    });
+    this.save();
+    return { success: true, message: `已开始烹饪 ${amount} 份熟${this.getFish(fishId) ? this.getFish(fishId).name : fishId}，约 ${days} 天后完成` };
+  }
+
+  processDeliJobs() {
+    if (!this.data.newArea.deliJobs || this.data.newArea.deliJobs.length === 0) return;
+    const remaining = [];
+    let produced = 0;
+    this.data.newArea.deliJobs.forEach(job => {
+      if (this.data.day >= job.finishDay) {
+        this.addToWarehouse('fish_cooked_' + job.fishId, job.amount);
+        produced += job.amount;
+        this.addLog('fish_cooked', { fishName: this.getFish(job.fishId) ? this.getFish(job.fishId).name : job.fishId, amount: job.amount });
+      } else {
+        remaining.push(job);
+      }
+    });
+    this.data.newArea.deliJobs = remaining;
+    if (produced > 0) this.save();
+  }
+
+  depositBank(amount) {
+    amount = parseInt(amount) || 0;
+    if (amount < 1) return { success: false, message: '金额无效' };
+    if (!this.isNewAreaBuildingBuilt('bank')) {
+      return { success: false, message: '请先建造银行' };
+    }
+    if ((this.data.gold || 0) < amount) {
+      return { success: false, message: '金币不足' };
+    }
+    this.data.gold -= amount;
+    this.data.bank.deposited = (this.data.bank.deposited || 0) + amount;
+    this.save();
+    return { success: true, deposited: this.data.bank.deposited };
+  }
+
+  withdrawBank(amount) {
+    amount = parseInt(amount) || 0;
+    if (amount < 1) return { success: false, message: '金额无效' };
+    const deposited = this.data.bank.deposited || 0;
+    if (amount > deposited) amount = deposited;
+    if (amount < 1) return { success: false, message: '没有可取出的存款' };
+    this.data.bank.deposited = deposited - amount;
+    this.data.gold = (this.data.gold || 0) + amount;
+    this.save();
+    return { success: true, deposited: this.data.bank.deposited, got: amount };
+  }
+
+  processBankInterest() {
+    if (!this.isNewAreaBuildingBuilt('bank')) return;
+    const deposited = this.data.bank.deposited || 0;
+    if (deposited <= 0) return;
+    const interest = deposited * (CONFIG.BANK_INTEREST || 0.0005);
+    this.data.bank.deposited = deposited + interest;
+    if (Math.floor(interest) >= 1) {
+      this.addLog('bank_interest', { interest: Math.floor(interest) });
+    }
+  }
+
   getProductName(cropType) {
     return PRODUCT_RECIPES[cropType] || ((CROP_TYPES[cropType] && CROP_TYPES[cropType].name) || cropType) + '制品';
   }
@@ -982,6 +1162,32 @@ class Game {
     if (workshop.pendingMaintenance) {
       return { success: false, message: '加工坊已停用，请先补缴维护费' };
     }
+
+    if (typeof cropType === 'string' && cropType.indexOf('fish_raw_') === 0) {
+      const fishId = cropType.slice('fish_raw_'.length);
+      const fish = this.getFish(fishId);
+      if (!fish) return { success: false, message: '未知的鱼类' };
+      const stock = this.getWarehouseCount(cropType);
+      if (stock < amount) {
+        return { success: false, message: `仓库中${fish.name}不足（需 ${amount}，现有 ${stock}）` };
+      }
+      const entry = this.data.warehouse.find(w => w.type === cropType);
+      entry.count -= amount;
+      if (entry.count <= 0) {
+        this.data.warehouse = this.data.warehouse.filter(w => w.type !== cropType);
+      }
+      const days = CONFIG.FISH_DESCALE_DAYS || 1;
+      this.data.newArea.workshopJobs.push({
+        id: 'desc_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+        kind: 'descale',
+        fishId: fishId,
+        amount: amount,
+        finishDay: this.data.day + days
+      });
+      this.save();
+      return { success: true, message: `已开始给 ${amount} 条${fish.name}去磷，约 ${days} 天后完成` };
+    }
+
     if (!CROP_TYPES[cropType] || CROP_TYPES[cropType].animalProduct) {
       return { success: false, message: '该物品无法加工' };
     }
@@ -998,6 +1204,7 @@ class Game {
     const days = CONFIG.WORKSHOP_PROCESS_DAYS || 2;
     this.data.newArea.workshopJobs.push({
       id: 'job_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+      kind: 'crop',
       cropType: cropType,
       amount: amount,
       finishDay: this.data.day + days
@@ -1012,9 +1219,15 @@ class Game {
     let produced = 0;
     this.data.newArea.workshopJobs.forEach(job => {
       if (this.data.day >= job.finishDay) {
-        this.addToWarehouse(this.getProductType(job.cropType), job.amount);
-        produced += job.amount;
-        this.addLog('workshop_done', { productName: this.getProductName(job.cropType), amount: job.amount });
+        if (job.kind === 'descale') {
+          this.addToWarehouse('fish_descaled_' + job.fishId, job.amount);
+          produced += job.amount;
+          this.addLog('fish_descaled', { fishName: this.getFish(job.fishId) ? this.getFish(job.fishId).name : job.fishId, amount: job.amount });
+        } else {
+          this.addToWarehouse(this.getProductType(job.cropType), job.amount);
+          produced += job.amount;
+          this.addLog('workshop_done', { productName: this.getProductName(job.cropType), amount: job.amount });
+        }
       } else {
         remaining.push(job);
       }
@@ -1320,6 +1533,19 @@ class Game {
       return SPECIAL_ITEM_VALUES[type];
     }
 
+    if (typeof type === 'string' && type.indexOf('fish_cooked_') === 0) {
+      const fish = this.getFish(type.slice('fish_cooked_'.length));
+      return fish ? Math.round(fish.price * 2) : 0;
+    }
+    if (typeof type === 'string' && type.indexOf('fish_descaled_') === 0) {
+      const fish = this.getFish(type.slice('fish_descaled_'.length));
+      return fish ? Math.round(fish.price * (CONFIG.FISH_DESCALE_SCALE || 0.8)) : 0;
+    }
+    if (typeof type === 'string' && type.indexOf('fish_raw_') === 0) {
+      const fish = this.getFish(type.slice('fish_raw_'.length));
+      return fish ? fish.price : 0;
+    }
+
     if (typeof type === 'string' && type.indexOf('product_') === 0) {
       const cropType = type.slice('product_'.length);
       return this.getProductValue(cropType);
@@ -1354,6 +1580,18 @@ class Game {
     if (type === 'mysterySeed') return '神秘种子';
     if (type === 'lottery') return '未兑奖的彩票';
     if (type === 'trophy') return '农场奖杯';
+    if (typeof type === 'string' && type.indexOf('fish_cooked_') === 0) {
+      const fish = this.getFish(type.slice('fish_cooked_'.length));
+      return fish ? '熟' + fish.name : type;
+    }
+    if (typeof type === 'string' && type.indexOf('fish_descaled_') === 0) {
+      const fish = this.getFish(type.slice('fish_descaled_'.length));
+      return fish ? '去磷' + fish.name : type;
+    }
+    if (typeof type === 'string' && type.indexOf('fish_raw_') === 0) {
+      const fish = this.getFish(type.slice('fish_raw_'.length));
+      return fish ? fish.name : type;
+    }
     if (typeof type === 'string' && type.indexOf('product_') === 0) {
       return this.getProductName(type.slice('product_'.length));
     }

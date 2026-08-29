@@ -14,6 +14,13 @@ const CONFIG = {
   HARVESTER_CAPACITY: 16,
   HARVESTER_COST_FACTOR: 1.5,
   LAND_COST: 25000,
+  DOCK_WORKER_WAGE: 400,
+  DOCK_MAX_WORKERS: 10,
+  FISH_RARE_CHANCE: 0.01,
+  FISH_DESCALE_DAYS: 1,
+  FISH_COOK_DAYS: 1,
+  FISH_DESCALE_SCALE: 0.8,
+  BANK_INTEREST: 0.0005,
   INITIAL_LAND_COUNT: 2,
   
   WEATHER_PROBABILITIES: {
@@ -51,7 +58,7 @@ const CONFIG = {
   CHICKEN_PRICE: 50,
   COOP_CAPACITY_PER: 5,
   
-  DEBUG_MODE: false,
+  DEBUG_MODE: true,
 
   SPONSOR: {
     wechatId: '',
@@ -253,7 +260,7 @@ const BUILDING_TYPES = {
     name: '收割机',
     baseCost: 2000,
     baseBuildDays: 5,
-    description: '作物成熟后自动收割并存入仓库，无需手动操作。每座每天自动收割最多16个作物，可多座叠加（无购买上限，越买越贵）。'
+    description: '作物成熟后自动收割并存入仓库，无需手动操作。每座每天自动收割最多16个作物，可多座叠加（无购买上限）。'
   }
 };
 
@@ -261,7 +268,7 @@ const NEW_AREA_BUILDINGS = {
   workshop: {
     name: '加工坊',
     buildCost: 20000,
-    description: '把仓库里的作物加工成更高价的制品（例：苹果→苹果酱、土豆→土豆泥）。每月需缴纳 2500 金币机器维护费，欠费会停用，需手动补缴。',
+    description: '把仓库里的作物加工成更高价的制品（例：苹果→苹果酱、土豆→土豆泥）。也可给鱼去磷。每月需缴纳 2500 金币机器维护费，欠费会停用，需手动补缴。',
     maxLevel: 3
   },
   arcade: {
@@ -269,6 +276,22 @@ const NEW_AREA_BUILDINGS = {
     buildCost: 15000,
     description: '提供休闲娱乐设施。已开放项目：幸运轮盘——把金币押在红/黑/绿上，红黑中奖翻 2 倍、绿色翻 20 倍，猜错本金全无。',
     maxLevel: 3
+  },
+  dock: {
+    name: '码头',
+    buildCost: 30000,
+    description: '可雇佣工人钓鱼：每名工人每天钓 2 条鱼、日薪 400 金币，金币不足会罢工。内含「钓鱼」与「港口」两区，港口暂未开放。'
+  },
+  deli: {
+    name: '熟食间',
+    buildCost: 25000,
+    requires: 'workshop',
+    description: '需先拥有加工坊。把加工坊去磷后的鱼，花 1 天制成「熟鱼」，售价为生鱼的 2 倍。'
+  },
+  bank: {
+    name: '银行',
+    buildCost: 15000,
+    description: '可存入金币，按 0.05% 日息每日结算利息。随时可取回本金与利息。'
   }
 };
 
@@ -287,6 +310,19 @@ const PRODUCT_RECIPES = {
   strawberry: '草莓酱',
   blueberry: '蓝莓酱',
   pepper: '辣椒酱'
+};
+
+const FISH_TYPES = {
+  carp: { id: 'carp', name: '鲤鱼', price: 100 },
+  grass: { id: 'grass', name: '草鱼', price: 120 },
+  crucian: { id: 'crucian', name: '鲫鱼', price: 130 },
+  bass: { id: 'bass', name: '鲈鱼', price: 150 },
+  ribbon: { id: 'ribbon', name: '带鱼', price: 160 },
+  mackerel: { id: 'mackerel', name: '鲅鱼', price: 180 },
+  yellow: { id: 'yellow', name: '黄花鱼', price: 200 },
+  pomfret: { id: 'pomfret', name: '鲳鱼', price: 220 },
+  cod: { id: 'cod', name: '鳕鱼', price: 250 },
+  golden: { id: 'golden', name: '金龙鱼', price: 50000, rare: true }
 };
 
 const INITIAL_CROPS = [

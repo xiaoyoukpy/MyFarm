@@ -1961,6 +1961,20 @@ class UIManager {
         return `寒流冻死了${logItem.data.cropName}`;
       case 'crop_withered':
         return `季节更替，${logItem.data.count} 株持续收获作物枯萎了，记得铲除`;
+      case 'fish_catch':
+        return `🎣 码头工人钓上了 ${logItem.data.count} 条鱼`;
+      case 'fish_strike':
+        return `⚠️ 码头工人因欠薪（需 ${logItem.data.need} 金币）罢工了，今日没有渔获`;
+      case 'fish_descaled':
+        return `🐟 去磷完成：${logItem.data.amount} 条${logItem.data.fishName}`;
+      case 'fish_cooked':
+        return `🍱 烹饪完成：${logItem.data.amount} 份熟${logItem.data.fishName}`;
+      case 'land_buy':
+        return `🌾 购买了一块地`;
+      case 'plan_slot_buy':
+        return `📈 扩容计划，当前计划槽位 ${logItem.data.maxPlans}`;
+      case 'bank_interest':
+        return `🏦 银行结息 +${logItem.data.interest} 金币`;
       default:
         return '';
     }
@@ -2037,21 +2051,34 @@ class UIManager {
     });
   }
 
+  getNaIcon(type) {
+    const icons = { workshop: '🏭', arcade: '🎡', dock: '⚓', deli: '🍱', bank: '🏦' };
+    return icons[type] || '🏠';
+  }
+
   renderNewAreaBuildingCard(type, building) {
     const def = NEW_AREA_BUILDINGS[type];
     if (!building || building.status !== 'built') {
       const canAfford = game.data.gold >= def.buildCost;
+      let tip = def.description;
+      if (def.requires && !game.isNewAreaBuildingBuilt(def.requires)) {
+        const reqName = (NEW_AREA_BUILDINGS[def.requires] && NEW_AREA_BUILDINGS[def.requires].name) || def.requires;
+        tip += `（需先建造${reqName}）`;
+      }
       return `
         <div class="na-building-card locked">
-          <div class="na-building-icon">${type === 'workshop' ? '🏭' : '🎡'}</div>
+          <div class="na-building-icon">${this.getNaIcon(type)}</div>
           <h3>${def.name}</h3>
-          <p class="na-building-desc">${def.description}</p>
-          <button class="btn btn-primary btn-build-na" data-na-type="${type}" ${canAfford ? '' : 'disabled'}>建造（${def.buildCost} 金币）</button>
+          <p class="na-building-desc">${tip}</p>
+          <button class="btn btn-primary btn-build-na" data-na-type="${type}" ${(canAfford && !def.requires) || (canAfford && def.requires && game.isNewAreaBuildingBuilt(def.requires)) ? '' : 'disabled'}>建造（${def.buildCost} 金币）</button>
         </div>`;
     }
 
     if (type === 'workshop') return this.renderWorkshopCard(building);
     if (type === 'arcade') return this.renderArcadeCard(building);
+    if (type === 'dock') return this.renderDockCard(building);
+    if (type === 'deli') return this.renderDeliCard(building);
+    if (type === 'bank') return this.renderBankCard(building);
     return '';
   }
 
@@ -2065,27 +2092,34 @@ class UIManager {
     }
 
     const processable = (game.data.warehouse || [])
-      .filter(w => CROP_TYPES[w.type] && !CROP_TYPES[w.type].animalProduct)
+      .filter(w => (CROP_TYPES[w.type] && !CROP_TYPES[w.type].animalProduct) || (typeof w.type === 'string' && w.type.indexOf('fish_raw_') === 0))
       .map(w => `
         <div class="ws-row">
           <span class="ws-name">${this.getItemName(w.type)} × ${w.count}</span>
           <input type="number" class="ws-amount" data-ws-type="${w.type}" value="1" min="1" max="${w.count}">
-          <button class="btn btn-sm btn-process" data-ws-type="${w.type}">加工</button>
+          <button class="btn btn-sm btn-process" data-ws-type="${w.type}">${typeof w.type === 'string' && w.type.indexOf('fish_raw_') === 0 ? '去磷' : '加工'}</button>
         </div>`).join('');
 
     const jobs = (game.data.newArea.workshopJobs || []).map(job => {
       const remain = Math.max(0, job.finishDay - game.data.day);
-      return `<div class="ws-job">⏳ ${job.amount} 份${game.getProductName(job.cropType)}，还有 ${remain} 天</div>`;
+      let label;
+      if (job.kind === 'descale') {
+        const f = game.getFish(job.fishId);
+        label = `去磷 ${job.amount} 条${f ? f.name : job.fishId}`;
+      } else {
+        label = `${job.amount} 份${game.getProductName(job.cropType)}`;
+      }
+      return `<div class="ws-job">⏳ ${label}，还有 ${remain} 天</div>`;
     }).join('');
 
     return `
       <div class="na-building-card">
         <div class="na-building-icon">🏭</div>
-        <h3>加工坊 Lv${building.level}</h3>
+        <h3>加工坊</h3>
         ${statusHtml}
         <div class="ws-section">
-          <div class="ws-title">加工（消耗仓库作物 → 高价制品）</div>
-          ${processable || '<div class="empty-state small">仓库中没有可加工的作物</div>'}
+          <div class="ws-title">加工（消耗仓库作物 → 高价制品；也可给鱼去磷）</div>
+          ${processable || '<div class="empty-state small">仓库中没有可加工的作物或鱼</div>'}
         </div>
         <div class="ws-jobs">${jobs}</div>
       </div>`;
@@ -2116,6 +2150,91 @@ class UIManager {
           <button class="btn btn-primary" id="wheel-spin">转动轮盘</button>
           <div class="wheel-result" id="wheel-result"></div>
           <div class="wheel-tip">红/黑中奖翻 2 倍，绿色翻 20 倍，猜错本金全无。全压？哼哼…</div>
+        </div>
+      </div>`;
+  }
+
+  renderDockCard(building) {
+    const workers = game.getDockWorkers();
+    const max = CONFIG.DOCK_MAX_WORKERS || 10;
+    const wage = CONFIG.DOCK_WORKER_WAGE || 400;
+    const striking = game.data.dock.striking;
+    const todayCatch = game.todayLogs
+      .filter(l => l.type === 'fish_catch')
+      .reduce((s, l) => s + (l.data.count || 0), 0);
+    const full = workers >= max;
+    return `
+      <div class="na-building-card">
+        <div class="na-building-icon">⚓</div>
+        <h3>码头</h3>
+        <div class="ws-section">
+          <div class="ws-title">🎣 钓鱼</div>
+          <div class="dock-info">工人 ${workers}/${max}（每名每天钓 2 条鱼，日薪 ${wage} 金币）</div>
+          ${striking
+            ? '<div class="na-status disabled">⚠️ 工人罢工中（金币不足以支付工资，补足后次日恢复）</div>'
+            : '<div class="na-status active">✅ 工人作业中</div>'}
+          <div class="dock-today">今日渔获：+${todayCatch} 条</div>
+          <div class="ws-row" style="margin-top:8px">
+            <button class="btn btn-sm btn-hire-worker" ${full ? 'disabled' : ''}>${full ? '人数已满' : '雇佣工人'}</button>
+            <button class="btn btn-sm btn-fire-worker" ${workers <= 0 ? 'disabled' : ''}>辞退工人</button>
+          </div>
+        </div>
+        <div class="ws-section">
+          <div class="ws-title">⚓ 港口</div>
+          <div class="empty-state small"><div class="empty-state-text">港口暂未开放</div></div>
+        </div>
+      </div>`;
+  }
+
+  renderDeliCard(building) {
+    const descaled = (game.data.warehouse || [])
+      .filter(w => typeof w.type === 'string' && w.type.indexOf('fish_descaled_') === 0)
+      .map(w => {
+        const fishId = w.type.slice('fish_descaled_'.length);
+        const f = game.getFish(fishId);
+        return `
+          <div class="ws-row">
+            <span class="ws-name">${f ? f.name : fishId}（去磷）× ${w.count}</span>
+            <input type="number" class="cook-amount" data-fish-id="${fishId}" value="1" min="1" max="${w.count}">
+            <button class="btn btn-sm btn-cook" data-fish-id="${fishId}">烹饪</button>
+          </div>`;
+      }).join('');
+    const jobs = (game.data.newArea.deliJobs || []).map(job => {
+      const remain = Math.max(0, job.finishDay - game.data.day);
+      const f = game.getFish(job.fishId);
+      return `<div class="ws-job">⏳ 熟${f ? f.name : job.fishId} ×${job.amount}，还有 ${remain} 天</div>`;
+    }).join('');
+    return `
+      <div class="na-building-card">
+        <div class="na-building-icon">🍱</div>
+        <h3>熟食间</h3>
+        <div class="ws-section">
+          <div class="ws-title">烹饪（去磷鱼 → 熟鱼，耗时 1 天，售价为生鱼 2 倍）</div>
+          ${descaled || '<div class="empty-state small">仓库中没有去磷鱼，请先在加工坊给鱼去磷</div>'}
+        </div>
+        <div class="ws-jobs">${jobs}</div>
+      </div>`;
+  }
+
+  renderBankCard(building) {
+    const deposited = Math.floor(game.data.bank.deposited || 0);
+    const interest = (game.data.bank.deposited || 0) * (CONFIG.BANK_INTEREST || 0.0005);
+    return `
+      <div class="na-building-card">
+        <div class="na-building-icon">🏦</div>
+        <h3>银行</h3>
+        <div class="ws-section">
+          <div class="ws-title">存款与利息</div>
+          <div class="bank-info">当前存款：${deposited} 金币（日息 0.05%，每日结算）</div>
+          <div class="bank-info">预计明日利息：+${interest.toFixed(1)} 金币</div>
+          <div class="ws-row" style="margin-top:8px">
+            <input type="number" id="bank-deposit-amount" class="bank-amount" placeholder="存入金额" min="1">
+            <button class="btn btn-sm btn-bank-deposit">存入</button>
+          </div>
+          <div class="ws-row" style="margin-top:6px">
+            <input type="number" id="bank-withdraw-amount" class="bank-amount" placeholder="取出金额" min="1">
+            <button class="btn btn-sm btn-bank-withdraw">取出</button>
+          </div>
         </div>
       </div>`;
   }
@@ -2165,6 +2284,69 @@ class UIManager {
           this.showToast(r.message, 'error');
         }
       });
+    });
+
+    root.querySelectorAll('.btn-hire-worker').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const r = game.hireDockWorker();
+        if (r.success) {
+          this.showToast(`已雇佣工人，当前 ${r.workers} 人`);
+          rerender();
+        } else {
+          this.showToast(r.message, 'error');
+        }
+      });
+    });
+
+    root.querySelectorAll('.btn-fire-worker').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const r = game.fireDockWorker();
+        if (r.success) {
+          this.showToast(`已辞退工人，剩余 ${r.workers} 人`);
+          rerender();
+        } else {
+          this.showToast(r.message, 'error');
+        }
+      });
+    });
+
+    root.querySelectorAll('.btn-cook').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const fishId = btn.dataset.fishId;
+        const input = root.querySelector(`.cook-amount[data-fish-id="${fishId}"]`);
+        const amount = input ? parseInt(input.value) : 1;
+        const r = game.startCooking(fishId, amount);
+        if (r.success) {
+          this.showToast(r.message);
+          rerender();
+        } else {
+          this.showToast(r.message, 'error');
+        }
+      });
+    });
+
+    const depositInput = root.querySelector('#bank-deposit-amount');
+    root.querySelector('.btn-bank-deposit')?.addEventListener('click', () => {
+      const amount = depositInput ? parseInt(depositInput.value) : 0;
+      const r = game.depositBank(amount);
+      if (r.success) {
+        this.showToast(`已存入，存款 ${Math.floor(r.deposited)} 金币`);
+        rerender();
+      } else {
+        this.showToast(r.message, 'error');
+      }
+    });
+
+    const withdrawInput = root.querySelector('#bank-withdraw-amount');
+    root.querySelector('.btn-bank-withdraw')?.addEventListener('click', () => {
+      const amount = withdrawInput ? parseInt(withdrawInput.value) : 0;
+      const r = game.withdrawBank(amount);
+      if (r.success) {
+        this.showToast(`已取出 ${r.got} 金币`);
+        rerender();
+      } else {
+        this.showToast(r.message, 'error');
+      }
     });
 
     // 轮盘
@@ -2309,6 +2491,15 @@ class UIManager {
       this.bindNewAreaEvents(container);
     } else if (tab === 'arcade') {
       container.innerHTML = this.renderNewAreaBuildingCard('arcade', game.getNewAreaBuilding('arcade'));
+      this.bindNewAreaEvents(container);
+    } else if (tab === 'dock') {
+      container.innerHTML = this.renderNewAreaBuildingCard('dock', game.getNewAreaBuilding('dock'));
+      this.bindNewAreaEvents(container);
+    } else if (tab === 'deli') {
+      container.innerHTML = this.renderNewAreaBuildingCard('deli', game.getNewAreaBuilding('deli'));
+      this.bindNewAreaEvents(container);
+    } else if (tab === 'bank') {
+      container.innerHTML = this.renderNewAreaBuildingCard('bank', game.getNewAreaBuilding('bank'));
       this.bindNewAreaEvents(container);
     }
   }

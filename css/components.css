@@ -1403,6 +1403,23 @@
   border-radius: var(--border-radius);
 }
 
+.dock-info,
+.bank-info {
+  font-size: 0.88rem;
+  margin-bottom: 8px;
+}
+.dock-today {
+  font-size: 0.85rem;
+  color: var(--ink-lighter);
+  margin-bottom: 6px;
+}
+.bank-amount {
+  width: 120px;
+  padding: 6px 8px;
+  border: 1px solid rgba(44, 24, 16, 0.2);
+  border-radius: var(--border-radius);
+}
+
 /* 轮盘 */
 .wheel {
   position: relative;
